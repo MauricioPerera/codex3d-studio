@@ -9,7 +9,9 @@ import {
   Maximize2, 
   Download, 
   Layers,
-  Sparkles
+  Sparkles,
+  Play,
+  Pause
 } from 'lucide-react';
 
 interface FloatingControlsProps {
@@ -67,7 +69,33 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
   ];
 
   return (
-    <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+    <div className="absolute top-4 right-4 z-20 flex items-center gap-2.5">
+      {/* Game Mode Play / Edit Switch */}
+      <button
+        onClick={() => {
+          const nextMode = engine.game.mode === 'play' ? 'edit' : 'play';
+          engine.game.setMode(nextMode);
+        }}
+        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xl transition-all active:scale-95 border ${
+          engine.game.mode === 'play'
+            ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white border-amber-400/50 shadow-amber-500/20 animate-pulse'
+            : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white border-emerald-400/50 shadow-emerald-500/20'
+        }`}
+        title={engine.game.mode === 'play' ? 'Switch to Edit Mode' : 'Play Game with Physics & 3rd-Person Controller'}
+      >
+        {engine.game.mode === 'play' ? (
+          <>
+            <Pause className="w-3.5 h-3.5 fill-white" />
+            <span>EDIT SCENE</span>
+          </>
+        ) : (
+          <>
+            <Play className="w-3.5 h-3.5 fill-white" />
+            <span>PLAY GAME</span>
+          </>
+        )}
+      </button>
+
       {/* Viewport Action Pill */}
       <div className="glass-pill px-2 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xl border border-white/10 text-xs">
         {/* Frame All */}

@@ -663,6 +663,175 @@ export function registerStudioTools(engine: StudioEngine): WebMCPBridge {
     }
   });
 
+  // 16. Set Game Mode (Play ⇄ Edit)
+  bridge.registerTool({
+    name: 'set_game_mode',
+    description: 'Switches between "play" mode (third-person physics, WASD controls, collision detection, game HUD) and "edit" mode (free camera, asset manipulation).',
+    parameters: {
+      type: 'object',
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['play', 'edit'],
+          description: 'Target mode'
+        }
+      },
+      required: ['mode']
+    },
+    execute: (args) => {
+      engine.game.setMode(args.mode as 'play' | 'edit');
+      return {
+        mode: engine.game.mode,
+        status: engine.game.status,
+        message: `Switched game engine to ${args.mode.toUpperCase()} mode`
+      };
+    }
+  });
+
+  // 17. Spawn Gameplay Element
+  bridge.registerTool({
+    name: 'spawn_gameplay_element',
+    description: 'Spawns an interactive gameplay mechanic entity in the world: collectible gems, lava hazard zones, bounce jump pads, moving platforms, or goal portals.',
+    parameters: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['collectible', 'hazard_lava', 'jump_pad', 'moving_platform', 'goal_portal'],
+          description: 'Gameplay element type'
+        },
+        position: {
+          type: 'array',
+          items: { type: 'number' },
+          description: '[x, y, z] spawn position'
+        },
+        endPosition: {
+          type: 'array',
+          items: { type: 'number' },
+          description: '[x, y, z] target position for moving platforms'
+        },
+        boostForce: { type: 'number', description: 'Upward jump impulse force (default 21)' },
+        points: { type: 'number', description: 'Score value for collectible' }
+      },
+      required: ['type', 'position']
+    },
+    execute: (args) => {
+      const pos = args.position as [number, number, number];
+      let item;
+      if (args.type === 'collectible') {
+        item = engine.game.mechanics.spawnCollectible(pos, args.points || 100);
+      } else if (args.type === 'hazard_lava') {
+        item = engine.game.mechanics.spawnHazard(pos, [4, 0.3, 4]);
+      } else if (args.type === 'jump_pad') {
+        item = engine.game.mechanics.spawnJumpPad(pos, args.boostForce || 21);
+      } else if (args.type === 'moving_platform') {
+        const endPos = (args.endPosition as [number, number, number]) || [pos[0], pos[1] + 4, pos[2]];
+        item = engine.game.mechanics.spawnMovingPlatform(pos, endPos, [3, 0.4, 2], 1.8);
+      } else if (args.type === 'goal_portal') {
+        item = engine.game.mechanics.spawnGoal(pos);
+      }
+      engine.notifyChange();
+      return {
+        type: args.type,
+        position: pos,
+        meshName: item?.mesh.name,
+        message: `Spawned gameplay mechanic ${args.type}`
+      };
+    }
+  });
+
+  // 18. Load Game Template (Obstacle Course / Obby)
+  bridge.registerTool({
+    name: 'load_game_template',
+    description: 'Clears the scene and builds a complete, instantly playable 3D game level with platforms, hazards, jump pads, collectible gems, and goal portal.',
+    parameters: {
+      type: 'object',
+      properties: {
+        template: {
+          type: 'string',
+          enum: ['cyber_obby', 'gem_parkour'],
+          description: 'Preset level template'
+        }
+      },
+      required: ['template']
+    },
+    execute: async (args) => {
+      // 1. Clear scene & mechanics
+      engine.meshes.clearScene();
+      engine.game.mechanics.clear();
+      engine.setLightingPreset('cyber_sunset');
+
+      // 2. Spawn Starting Platform
+      engine.meshes.createPrimitive({
+        type: 'box',
+        name: 'Start Platform',
+        dimensions: { width: 5, height: 0.8, depth: 5 },
+        position: [0, 0, 0],
+        materialPreset: 'carbon_fiber'
+      });
+      engine.game.mechanics.activeCheckpoint.set(0, 1.2, 0);
+
+      // 3. Platform series (Cyber Obby)
+      const platforms = [
+        { pos: [0, 0.6, 6], dim: [2.5, 0.5, 2.5], mat: 'matte_obsidian' },
+        { pos: [3.5, 1.6, 9], dim: [2.2, 0.5, 2.2], mat: 'matte_obsidian' },
+        { pos: [0, 2.6, 12], dim: [2.5, 0.5, 2.5], mat: 'matte_obsidian' },
+        { pos: [-4, 3.8, 14], dim: [2.5, 0.5, 2.5], mat: 'carbon_fiber' },
+        { pos: [0, 5.0, 17], dim: [3.0, 0.5, 3.0], mat: 'matte_obsidian' },
+        { pos: [5, 6.2, 20], dim: [2.2, 0.5, 2.2], mat: 'carbon_fiber' },
+        { pos: [0, 7.5, 24], dim: [5, 0.8, 5], mat: 'carbon_fiber' } // Finish platform
+      ];
+
+      platforms.forEach((p, idx) => {
+        engine.meshes.createPrimitive({
+          type: 'box',
+          name: `Obby Platform ${idx + 1}`,
+          dimensions: { width: p.dim[0], height: p.dim[1], depth: p.dim[2] },
+          position: p.pos as [number, number, number],
+          materialPreset: p.mat as any
+        });
+      });
+
+      // 4. Moving Platform
+      engine.game.mechanics.spawnMovingPlatform([-4, 3.8, 14], [-4, 3.8, 10], [2.5, 0.4, 2.0], 1.5);
+
+      // 5. Jump Pad (Bounces player from platform 3 to platform 5)
+      engine.game.mechanics.spawnJumpPad([0, 2.9, 12], 22);
+
+      // 6. Lava Hazard Floor
+      engine.game.mechanics.spawnHazard([0, -1.5, 12], [30, 0.5, 35]);
+
+      // 7. Collectible Gems
+      engine.game.mechanics.spawnCollectible([0, 1.8, 6], 100);
+      engine.game.mechanics.spawnCollectible([3.5, 2.8, 9], 150);
+      engine.game.mechanics.spawnCollectible([0, 5.2, 14], 200);
+      engine.game.mechanics.spawnCollectible([5, 7.4, 20], 250);
+
+      // 8. Goal Portal at finish
+      engine.game.mechanics.spawnGoal([0, 8.9, 24]);
+
+      engine.frameAll();
+      engine.notifyChange();
+
+      return {
+        level: args.template,
+        totalGems: 4,
+        message: `Constructed ${args.template} with 7 platforms, moving bridge, jump pad, lava floor, and goal portal!`
+      };
+    }
+  });
+
+  // 19. Inspect Game State
+  bridge.registerTool({
+    name: 'inspect_game_state',
+    description: 'Queries live game loop metrics: play/edit mode, player lives, score, gems collected, time elapsed, and level completion.',
+    parameters: { type: 'object', properties: {} },
+    execute: () => {
+      return engine.game.getState();
+    }
+  });
+
   return bridge;
 }
+
 

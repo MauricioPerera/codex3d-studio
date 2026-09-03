@@ -4,6 +4,7 @@ import { SceneLighting } from './SceneLighting';
 import { MaterialManager } from './MaterialManager';
 import { MeshManager } from './MeshManager';
 import { Exporter } from './Exporter';
+import { GameManager } from '../game/GameManager';
 import { CameraPreset, LightingPreset, SceneInspectionResult } from './types';
 
 export class StudioEngine {
@@ -15,6 +16,7 @@ export class StudioEngine {
   public materials: MaterialManager;
   public meshes: MeshManager;
   public exporter: Exporter;
+  public game: GameManager;
 
   private isTurntableActive = false;
   private turntableSpeed = 0.008;
@@ -66,6 +68,7 @@ export class StudioEngine {
     this.materials = new MaterialManager();
     this.meshes = new MeshManager(this.scene, this.materials);
     this.exporter = new Exporter(this.scene, this.renderer, this.camera);
+    this.game = new GameManager(this.scene, this.camera, this.controls);
 
     // 6. Start render loop
     this.startLoop();
@@ -74,18 +77,23 @@ export class StudioEngine {
   private startLoop() {
     const animate = () => {
       this.animationFrameId = requestAnimationFrame(animate);
+      const dt = this.clock.getDelta();
 
-      if (this.isTurntableActive) {
-        // Rotate scene around target or origin
-        const angle = this.turntableSpeed;
-        const x = this.camera.position.x - this.controls.target.x;
-        const z = this.camera.position.z - this.controls.target.z;
-        this.camera.position.x = this.controls.target.x + x * Math.cos(angle) - z * Math.sin(angle);
-        this.camera.position.z = this.controls.target.z + x * Math.sin(angle) + z * Math.cos(angle);
-        this.camera.lookAt(this.controls.target);
+      if (this.game.mode === 'play') {
+        this.game.update(dt);
+      } else {
+        if (this.isTurntableActive) {
+          // Rotate scene around target or origin
+          const angle = this.turntableSpeed;
+          const x = this.camera.position.x - this.controls.target.x;
+          const z = this.camera.position.z - this.controls.target.z;
+          this.camera.position.x = this.controls.target.x + x * Math.cos(angle) - z * Math.sin(angle);
+          this.camera.position.z = this.controls.target.z + x * Math.sin(angle) + z * Math.cos(angle);
+          this.camera.lookAt(this.controls.target);
+        }
+        this.controls.update();
       }
 
-      this.controls.update();
       this.renderer.render(this.scene, this.camera);
     };
     animate();

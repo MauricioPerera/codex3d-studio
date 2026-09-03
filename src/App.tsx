@@ -7,10 +7,21 @@ import { SceneHierarchyDrawer } from './components/SceneHierarchyDrawer';
 import { WebMCPConsoleDrawer } from './components/WebMCPConsoleDrawer';
 import { RenderExportModal } from './components/RenderExportModal';
 import { PhotorealModal } from './components/PhotorealModal';
+import { GameHUD } from './components/GameHUD';
+import { GameState } from './game/GameManager';
 
 export const App: React.FC = () => {
   const [engine, setEngine] = useState<StudioEngine | null>(null);
   const [, setTick] = useState(0);
+  const [gameState, setGameState] = useState<GameState>({
+    mode: 'edit',
+    status: 'ready',
+    score: 0,
+    lives: 3,
+    gemsCollected: 0,
+    totalGems: 0,
+    elapsedTime: 0
+  });
   const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [isRenderModalOpen, setIsRenderModalOpen] = useState(false);
@@ -19,6 +30,10 @@ export const App: React.FC = () => {
   const handleEngineReady = useCallback((eng: StudioEngine) => {
     setEngine(eng);
     eng.onStateChange(() => {
+      setTick(t => t + 1);
+    });
+    eng.game.onStateChange((state) => {
+      setGameState(state);
       setTick(t => t + 1);
     });
   }, []);
@@ -67,6 +82,20 @@ export const App: React.FC = () => {
         engine={engine}
         isOpen={isPhotorealModalOpen}
         onClose={() => setIsPhotorealModalOpen(false)}
+      />
+
+      {/* Real-Time Play Mode Game HUD */}
+      <GameHUD
+        gameState={gameState}
+        onToggleMode={() => {
+          if (!engine) return;
+          const next = engine.game.mode === 'play' ? 'edit' : 'play';
+          engine.game.setMode(next);
+        }}
+        onRestart={() => {
+          if (!engine) return;
+          engine.game.resetLevel();
+        }}
       />
     </div>
   );
