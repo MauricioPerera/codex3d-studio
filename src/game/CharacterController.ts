@@ -8,9 +8,9 @@ export class CharacterController {
   public mesh: THREE.Group;
   public body: CANNON.Body;
   private isGrounded = false;
-  private moveSpeed = 9.0;
-  private sprintSpeed = 14.0;
-  private jumpForce = 12.5;
+  private moveSpeed = 15.0;
+  private sprintSpeed = 22.0;
+  private jumpForce = 13.5;
 
   private keys: Record<string, boolean> = {};
   public active = false;
@@ -355,7 +355,7 @@ export class CharacterController {
       moveVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.camYaw);
 
       // Smooth, responsive acceleration
-      const accel = this.isGrounded ? 26.0 : 14.0;
+      const accel = this.isGrounded ? 36.0 : 16.0;
       const targetVx = moveVector.x * targetSpeed;
       const targetVz = moveVector.z * targetSpeed;
       this.body.velocity.x = THREE.MathUtils.lerp(this.body.velocity.x, targetVx, Math.min(1, accel * dt));
@@ -363,11 +363,11 @@ export class CharacterController {
 
       // Smooth avatar rotation facing movement direction
       this.targetRotation = Math.atan2(moveVector.x, moveVector.z);
-      this.currentRotation = THREE.MathUtils.lerp(this.currentRotation, this.targetRotation, 0.24);
+      this.currentRotation = THREE.MathUtils.lerp(this.currentRotation, this.targetRotation, 0.28);
       this.mesh.rotation.y = this.currentRotation;
     } else {
       // Snappy ground braking & air damping
-      const friction = this.isGrounded ? 0.78 : 0.94;
+      const friction = this.isGrounded ? 0.72 : 0.92;
       this.body.velocity.x *= Math.pow(friction, dt * 60);
       this.body.velocity.z *= Math.pow(friction, dt * 60);
     }
@@ -379,32 +379,35 @@ export class CharacterController {
       this.body.position.z
     );
 
-    // 4. Procedural Character Limb Animation (Walk / Run / Jump / Idle)
+    // 4. Procedural Character Limb Animation Synchronized 1:1 to World Displacement
     const horizSpeed = Math.sqrt(this.body.velocity.x ** 2 + this.body.velocity.z ** 2);
     const isMoving = horizSpeed > 0.4;
 
     if (this.currentAvatar === 'voxel_runner') {
       if (isMoving && this.isGrounded) {
-        // Step cycle frequency proportional to velocity
-        const animSpeed = isSprinting ? 15.0 : 11.0;
-        this.walkTime += dt * animSpeed;
-        const swingAngle = isSprinting ? 0.85 : 0.64;
+        // Exact mathematical step progression based on true distance traveled
+        const distanceMoved = horizSpeed * dt;
+        const strideLength = 1.35; // 1 full left+right stride cycle ~1.35 meters
+        this.walkTime += (distanceMoved / strideLength) * Math.PI * 2;
+
+        const speedRatio = Math.min(1.0, horizSpeed / this.sprintSpeed);
+        const swingAngle = 0.52 + speedRatio * 0.42;
 
         // Alternating leg swing
         this.legL.rotation.x = Math.sin(this.walkTime) * swingAngle;
         this.legR.rotation.x = -Math.sin(this.walkTime) * swingAngle;
 
         // Alternating arm swing (in opposition to legs)
-        this.armL.rotation.x = -Math.sin(this.walkTime) * (swingAngle * 0.85);
-        this.armR.rotation.x = Math.sin(this.walkTime) * (swingAngle * 0.85);
+        this.armL.rotation.x = -Math.sin(this.walkTime) * (swingAngle * 0.9);
+        this.armR.rotation.x = Math.sin(this.walkTime) * (swingAngle * 0.9);
 
         // Subtle torso and head bounce
-        this.torsoMesh.position.y = 0.7 + Math.abs(Math.sin(this.walkTime)) * 0.06;
-        this.headGroup.position.y = 1.35 + Math.abs(Math.sin(this.walkTime)) * 0.05;
+        this.torsoMesh.position.y = 0.7 + Math.abs(Math.sin(this.walkTime)) * (0.05 + speedRatio * 0.04);
+        this.headGroup.position.y = 1.35 + Math.abs(Math.sin(this.walkTime)) * (0.04 + speedRatio * 0.03);
 
-        // Forward tilt during run
-        const forwardLean = (horizSpeed / this.sprintSpeed) * 0.14;
-        this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, forwardLean, 0.15);
+        // Forward tilt during sprint
+        const forwardLean = speedRatio * 0.16;
+        this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, forwardLean, 0.2);
       } else if (!this.isGrounded) {
         // In-air Jump Pose
         this.legL.rotation.x = THREE.MathUtils.lerp(this.legL.rotation.x, -0.42, 0.2);
