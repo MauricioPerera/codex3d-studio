@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PhysicsEngine } from './PhysicsEngine';
 import { AudioSystem } from './AudioSystem';
+import { ParticleSystem } from './ParticleSystem';
 
 export interface GameplayItem {
   type: 'collectible' | 'hazard' | 'jump_pad' | 'moving_platform' | 'checkpoint' | 'goal';
@@ -18,7 +19,8 @@ export class GameplayMechanics {
   constructor(
     private scene: THREE.Scene,
     private physics: PhysicsEngine,
-    private audio: AudioSystem
+    private audio: AudioSystem,
+    private particles?: ParticleSystem
   ) {}
 
   public spawnCollectible(position: [number, number, number], points = 100): GameplayItem {
@@ -51,7 +53,7 @@ export class GameplayMechanics {
     const geo = new THREE.BoxGeometry(w, h, d);
     const mat = new THREE.MeshStandardMaterial({
       color: 0xef4444,
-      emissive: 0xb91c1c,
+      emissive: 0xd97706,
       emissiveIntensity: 0.9,
       roughness: 0.2
     });
@@ -61,38 +63,44 @@ export class GameplayMechanics {
     mesh.userData = { isStudioAsset: true, gameplayType: 'hazard' };
     this.scene.add(mesh);
 
-    const body = this.physics.registerStaticBox(mesh, w, h, d);
-
     const item: GameplayItem = {
       type: 'hazard',
       mesh,
-      body,
-      data: { damage: 1 }
+      data: { dimensions }
     };
     this.items.push(item);
     return item;
   }
 
-  public spawnJumpPad(position: [number, number, number], boostForce = 21): GameplayItem {
-    const geo = new THREE.CylinderGeometry(0.8, 0.9, 0.2, 16);
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0x10b981,
-      emissive: 0x059669,
-      emissiveIntensity: 0.8,
-      roughness: 0.2
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(...position);
-    mesh.name = `JumpPad_${Date.now()}`;
-    mesh.userData = { isStudioAsset: true, gameplayType: 'jump_pad' };
-    this.scene.add(mesh);
+  public spawnJumpPad(position: [number, number, number], boostForce = 22): GameplayItem {
+    const group = new THREE.Group();
+    group.position.set(...position);
+    group.name = `JumpPad_${Date.now()}`;
+    group.userData = { isStudioAsset: true, gameplayType: 'jump_pad' };
 
-    const body = this.physics.registerStaticBox(mesh, 1.6, 0.2, 1.6);
+    // Pad base
+    const baseGeo = new THREE.CylinderGeometry(0.9, 1.0, 0.2, 16);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    group.add(base);
+
+    // Glowing Neon Bouncer
+    const padGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.1, 16);
+    const padMat = new THREE.MeshStandardMaterial({
+      color: 0x10b981,
+      emissive: 0x10b981,
+      emissiveIntensity: 1.2,
+      roughness: 0.1
+    });
+    const pad = new THREE.Mesh(padGeo, padMat);
+    pad.position.y = 0.1;
+    group.add(pad);
+
+    this.scene.add(group);
 
     const item: GameplayItem = {
       type: 'jump_pad',
-      mesh,
-      body,
+      mesh: group,
       data: { boostForce, cooldown: 0 }
     };
     this.items.push(item);
@@ -100,36 +108,39 @@ export class GameplayMechanics {
   }
 
   public spawnMovingPlatform(
-    startPos: [number, number, number],
-    endPos: [number, number, number],
+    start: [number, number, number],
+    end: [number, number, number],
     dimensions: [number, number, number] = [3, 0.4, 2],
-    speed = 1.8
+    speed = 1.5
   ): GameplayItem {
     const [w, h, d] = dimensions;
     const geo = new THREE.BoxGeometry(w, h, d);
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x6366f1,
-      emissive: 0x4338ca,
-      emissiveIntensity: 0.3,
+      color: 0x8b5cf6,
+      emissive: 0x6d28d9,
+      emissiveIntensity: 0.4,
       roughness: 0.3
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(...startPos);
+    mesh.position.set(...start);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.name = `MovingPlatform_${Date.now()}`;
     mesh.userData = { isStudioAsset: true, gameplayType: 'moving_platform' };
     this.scene.add(mesh);
 
-    const body = this.physics.registerKinematicPlatform(mesh, w, h, d);
+    const body = this.physics.createKinematicPlatform(
+      new THREE.Vector3(w, h, d),
+      new THREE.Vector3(...start)
+    );
 
     const item: GameplayItem = {
       type: 'moving_platform',
       mesh,
       body,
       data: {
-        start: new THREE.Vector3(...startPos),
-        end: new THREE.Vector3(...endPos),
+        start: new THREE.Vector3(...start),
+        end: new THREE.Vector3(...end),
         speed,
         progress: 0,
         direction: 1
@@ -142,30 +153,32 @@ export class GameplayMechanics {
   public spawnGoal(position: [number, number, number]): GameplayItem {
     const group = new THREE.Group();
     group.position.set(...position);
+    group.name = `Goal_Portal_${Date.now()}`;
+    group.userData = { isStudioAsset: true, gameplayType: 'goal' };
 
-    // Outer spinning ring
-    const torusGeo = new THREE.TorusGeometry(1.2, 0.15, 16, 32);
-    const torusMat = new THREE.MeshStandardMaterial({
+    // Outer Stargate Ring
+    const ringGeo = new THREE.TorusGeometry(1.6, 0.22, 16, 32);
+    const ringMat = new THREE.MeshStandardMaterial({
       color: 0xf59e0b,
       emissive: 0xd97706,
-      emissiveIntensity: 0.9,
-      roughness: 0.2
+      emissiveIntensity: 0.8,
+      metalness: 0.9,
+      roughness: 0.1
     });
-    const ring = new THREE.Mesh(torusGeo, torusMat);
+    const ring = new THREE.Mesh(ringGeo, ringMat);
     group.add(ring);
 
-    // Inner glowing core
-    const coreGeo = new THREE.SphereGeometry(0.5, 16, 16);
+    // Inner Glowing Core
+    const coreGeo = new THREE.SphereGeometry(0.65, 16, 16);
     const coreMat = new THREE.MeshStandardMaterial({
       color: 0xfef08a,
-      emissive: 0xf59e0b,
-      emissiveIntensity: 1.0
+      emissive: 0xfacc15,
+      emissiveIntensity: 1.5,
+      roughness: 0.1
     });
     const core = new THREE.Mesh(coreGeo, coreMat);
     group.add(core);
 
-    group.name = `GoalPortal_${Date.now()}`;
-    group.userData = { isStudioAsset: true, gameplayType: 'goal' };
     this.scene.add(group);
 
     const item: GameplayItem = {
@@ -201,6 +214,9 @@ export class GameplayMechanics {
           item.collected = true;
           item.mesh.visible = false;
           this.audio.playCollect();
+          if (this.particles) {
+            this.particles.emitGemBurst(item.mesh.position);
+          }
           callbacks.onCollect(item.data.points);
         }
       } else if (item.type === 'hazard') {
@@ -216,6 +232,9 @@ export class GameplayMechanics {
           const dist = item.mesh.position.distanceTo(playerPos);
           if (dist < 1.1 && playerPos.y >= item.mesh.position.y) {
             item.data.cooldown = 0.5;
+            if (this.particles) {
+              this.particles.emitBoosterShockwave(item.mesh.position);
+            }
             callbacks.onJumpPad(item.data.boostForce);
           }
         }
@@ -230,6 +249,9 @@ export class GameplayMechanics {
           d.direction = 1;
         }
         item.mesh.position.lerpVectors(d.start, d.end, d.progress);
+        if (item.body) {
+          item.body.position.copy(item.mesh.position as any);
+        }
       } else if (item.type === 'goal') {
         if (item.data.ring) {
           item.data.ring.rotation.x += dt * 1.5;
@@ -238,6 +260,9 @@ export class GameplayMechanics {
         const dist = item.mesh.position.distanceTo(playerPos);
         if (dist < 1.5) {
           this.audio.playVictory();
+          if (this.particles) {
+            this.particles.emitConfetti(item.mesh.position);
+          }
           callbacks.onGoal();
         }
       }

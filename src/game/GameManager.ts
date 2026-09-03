@@ -4,6 +4,7 @@ import { PhysicsEngine } from './PhysicsEngine';
 import { CharacterController } from './CharacterController';
 import { GameplayMechanics } from './GameplayMechanics';
 import { AudioSystem } from './AudioSystem';
+import { ParticleSystem } from './ParticleSystem';
 
 export interface GameState {
   mode: 'edit' | 'play';
@@ -26,6 +27,7 @@ export class GameManager {
 
   public physics: PhysicsEngine;
   public audio: AudioSystem;
+  public particles: ParticleSystem;
   public controller: CharacterController;
   public mechanics: GameplayMechanics;
 
@@ -38,8 +40,9 @@ export class GameManager {
   ) {
     this.physics = new PhysicsEngine();
     this.audio = new AudioSystem();
-    this.controller = new CharacterController(this.scene, this.camera, this.physics, this.audio);
-    this.mechanics = new GameplayMechanics(this.scene, this.physics, this.audio);
+    this.particles = new ParticleSystem(this.scene);
+    this.controller = new CharacterController(this.scene, this.camera, this.physics, this.audio, this.particles);
+    this.mechanics = new GameplayMechanics(this.scene, this.physics, this.audio, this.particles);
 
     this.controller.setActive(false);
   }
@@ -65,64 +68,53 @@ export class GameManager {
     };
   }
 
-  public setMode(newMode: 'edit' | 'play') {
-    if (this.mode === newMode) return;
-    this.mode = newMode;
+  public setMode(mode: 'edit' | 'play') {
+    if (this.mode === mode) return;
+    this.mode = mode;
 
-    if (newMode === 'play') {
-      this.status = 'playing';
-      this.score = 0;
-      this.lives = 3;
-      this.gemsCollected = 0;
-      this.elapsedTime = 0;
-
-      // Count total collectibles in scene
-      this.totalGems = this.mechanics.items.filter(i => i.type === 'collectible').length;
-      this.mechanics.resetCollectibles();
-
-      // Register static colliders for all studio assets in scene
-      this.bakeSceneColliders();
-
-      // Disable orbit controls, enable player controller
+    if (mode === 'play') {
       this.controls.enabled = false;
       this.controller.setActive(true);
       this.controller.respawn(this.mechanics.activeCheckpoint);
+      this.resetLevel();
+
+      // Bake scene colliders into physics engine
+      this.physics.clearColliders();
+      this.bakeSceneColliders();
     } else {
-      this.status = 'ready';
-      this.controller.setActive(false);
       this.controls.enabled = true;
-      this.physics.clearNonGround();
+      this.controller.setActive(false);
+      this.status = 'ready';
     }
 
     this.notify();
   }
 
   private bakeSceneColliders() {
-    this.scene.traverse((obj) => {
-      if (
-        obj instanceof THREE.Mesh &&
-        obj.userData?.isStudioAsset &&
-        !obj.userData?.gameplayType && // Gameplay items manage their own bodies
-        obj.name !== '__Studio_Grid__' &&
-        obj.name !== '__Studio_Ground__'
-      ) {
-        // Calculate bounding box for collision shape
-        obj.geometry.computeBoundingBox();
-        const bbox = obj.geometry.boundingBox;
+    this.scene.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.userData?.isStudioAsset) {
+        if (child.name.startsWith('__Studio_') || child.name.startsWith('__Player_')) return;
+        if (child.userData?.gameplayType === 'hazard' || child.userData?.gameplayType === 'collectible') return;
+
+        child.geometry.computeBoundingBox();
+        const bbox = child.geometry.boundingBox;
         if (bbox) {
           const size = new THREE.Vector3();
           bbox.getSize(size);
-          // Scale by world scale
-          size.multiply(obj.scale);
-          if (size.x > 0.05 && size.y > 0.05 && size.z > 0.05) {
-            this.physics.registerStaticBox(obj, size.x, size.y, size.z);
-          }
+          size.multiply(child.scale);
+
+          const worldPos = new THREE.Vector3();
+          child.getWorldPosition(worldPos);
+
+          this.physics.createStaticBox(size, worldPos);
         }
       }
     });
   }
 
   public update(dt: number) {
+    this.particles.update(dt);
+
     if (this.mode !== 'play') return;
 
     if (this.status === 'playing') {
@@ -163,7 +155,9 @@ export class GameManager {
     this.lives = 3;
     this.gemsCollected = 0;
     this.elapsedTime = 0;
+    this.particles.clear();
     this.mechanics.resetCollectibles();
+    this.totalGems = this.mechanics.items.filter(i => i.type === 'collectible').length;
     this.controller.respawn(this.mechanics.activeCheckpoint);
     this.notify();
   }

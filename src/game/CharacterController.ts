@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PhysicsEngine } from './PhysicsEngine';
 import { AudioSystem } from './AudioSystem';
+import { ParticleSystem } from './ParticleSystem';
 
 export class CharacterController {
   public mesh: THREE.Group;
@@ -31,6 +32,7 @@ export class CharacterController {
     private camera: THREE.PerspectiveCamera,
     private physics: PhysicsEngine,
     private audio: AudioSystem,
+    private particles?: ParticleSystem,
     private spawnPoint: THREE.Vector3 = new THREE.Vector3(0, 1.5, 0)
   ) {
     this.mesh = this.createPlayerMesh();
@@ -217,6 +219,9 @@ export class CharacterController {
     this.isGrounded = false;
     if (!overrideForce) {
       this.audio.playJump();
+      if (this.particles) {
+        this.particles.emitJumpDust(this.mesh.position);
+      }
     } else {
       this.audio.playBooster();
     }
