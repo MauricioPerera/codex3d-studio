@@ -65,6 +65,13 @@ export const EntitySpawnerBar: React.FC<EntitySpawnerBarProps> = ({
     engine.notifyChange();
   };
 
+  const handleSpawnSpeedRing = () => {
+    const pos = getSpawnPos();
+    engine.game.mechanics.spawnSpeedRing(pos);
+    engine.game.audio.playTurbo();
+    engine.notifyChange();
+  };
+
   const handleSpawnGoal = () => {
     const pos = getSpawnPos();
     engine.game.mechanics.spawnGoal([pos[0], pos[1] + 1.2, pos[2]]);
@@ -127,6 +134,16 @@ export const EntitySpawnerBar: React.FC<EntitySpawnerBarProps> = ({
       >
         <Flame className="w-3.5 h-3.5 text-rose-500" />
         <span>Lava Zone</span>
+      </button>
+
+      {/* Speed Ring Power-up */}
+      <button
+        onClick={handleSpawnSpeedRing}
+        title="Spawn Turbo Speed Ring Power-up"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/60 hover:bg-amber-500/20 text-slate-200 hover:text-amber-300 border border-white/5 hover:border-amber-500/40 text-xs font-medium transition-all active:scale-95"
+      >
+        <Zap className="w-3.5 h-3.5 text-amber-400" />
+        <span>Speed Ring</span>
       </button>
 
       {/* Goal Stargate */}

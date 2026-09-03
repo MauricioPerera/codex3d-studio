@@ -32,6 +32,13 @@ export class CharacterController {
   // Game Feel (Coyote Time & Jump Buffer)
   private coyoteTimer = 0;
   private jumpBufferTimer = 0;
+  private prevWalkSine = 0;
+  public turboTimer = 0;
+
+  public applyTurbo(duration = 5.0) {
+    this.turboTimer = duration;
+    this.audio.playTurbo();
+  }
 
   // Touch controls input
   public touchMove = { forward: 0, right: 0 };
@@ -344,8 +351,15 @@ export class CharacterController {
     if (this.keys['KeyA'] || this.keys['ArrowLeft']) right -= 1;
     if (this.keys['KeyD'] || this.keys['ArrowRight']) right += 1;
 
+    // Process Turbo Timer & Speed Multiplier
+    const isTurbo = this.turboTimer > 0;
+    if (isTurbo) {
+      this.turboTimer = Math.max(0, this.turboTimer - dt);
+    }
+    const speedMultiplier = isTurbo ? 1.55 : 1.0;
+
     const isSprinting = !!(this.keys['ShiftLeft'] || this.keys['ShiftRight']);
-    const targetSpeed = isSprinting ? this.sprintSpeed : this.moveSpeed;
+    const targetSpeed = (isSprinting ? this.sprintSpeed : this.moveSpeed) * speedMultiplier;
 
     const moveVector = new THREE.Vector3(right, 0, forward);
     const hasInput = moveVector.lengthSq() > 0.001;
@@ -389,6 +403,18 @@ export class CharacterController {
         const distanceMoved = horizSpeed * dt;
         const strideLength = 1.35; // 1 full left+right stride cycle ~1.35 meters
         this.walkTime += (distanceMoved / strideLength) * Math.PI * 2;
+
+        // Rhythmic Footstep Sound on zero-crossing of stride cycle
+        const currentSine = Math.sin(this.walkTime);
+        if ((this.prevWalkSine < 0 && currentSine >= 0) || (this.prevWalkSine > 0 && currentSine <= 0)) {
+          this.audio.playFootstep();
+        }
+        this.prevWalkSine = currentSine;
+
+        // Emit glowing motion streaks when in turbo boost
+        if (isTurbo && this.particles) {
+          this.particles.emitSpeedTrail(this.mesh.position, this.body.velocity as any);
+        }
 
         const speedRatio = Math.min(1.0, horizSpeed / this.sprintSpeed);
         const swingAngle = 0.52 + speedRatio * 0.42;

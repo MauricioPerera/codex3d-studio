@@ -151,6 +151,21 @@ export class ParticleSystem {
     }
   }
 
+  public emitSpeedTrail(pos: THREE.Vector3, vel: THREE.Vector3) {
+    if (this.particles.length >= this.maxParticles) return;
+    for (let i = 0; i < 3; i++) {
+      this.particles.push({
+        position: pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 0.4 + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.4)),
+        velocity: vel.clone().multiplyScalar(-0.15).add(new THREE.Vector3((Math.random() - 0.5) * 0.8, Math.random() * 0.6, (Math.random() - 0.5) * 0.8)),
+        color: new THREE.Color(0x38bdf8).lerp(new THREE.Color(0xf43f5e), Math.random()),
+        size: 0.35,
+        alpha: 0.9,
+        life: 0,
+        maxLife: 0.28
+      });
+    }
+  }
+
   public update(dt: number) {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];

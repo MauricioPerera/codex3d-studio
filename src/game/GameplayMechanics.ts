@@ -5,7 +5,7 @@ import { AudioSystem } from './AudioSystem';
 import { ParticleSystem } from './ParticleSystem';
 
 export interface GameplayItem {
-  type: 'collectible' | 'hazard' | 'jump_pad' | 'moving_platform' | 'checkpoint' | 'goal';
+  type: 'collectible' | 'hazard' | 'jump_pad' | 'moving_platform' | 'checkpoint' | 'goal' | 'speed_ring';
   mesh: THREE.Object3D;
   body?: CANNON.Body;
   data: any;
@@ -190,6 +190,34 @@ export class GameplayMechanics {
     return item;
   }
 
+  public spawnSpeedRing(position: [number, number, number]): GameplayItem {
+    const group = new THREE.Group();
+    group.position.set(...position);
+    group.name = `SpeedRing_${Date.now()}`;
+    group.userData = { isStudioAsset: true, gameplayType: 'speed_ring' };
+
+    const ringGeo = new THREE.TorusGeometry(1.2, 0.12, 12, 32);
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      emissive: 0xf59e0b,
+      emissiveIntensity: 1.6,
+      roughness: 0.15,
+      metalness: 0.8
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    group.add(ring);
+
+    this.scene.add(group);
+
+    const item: GameplayItem = {
+      type: 'speed_ring',
+      mesh: group,
+      data: { ring, cooldown: 0 }
+    };
+    this.items.push(item);
+    return item;
+  }
+
   public update(
     dt: number,
     playerPos: THREE.Vector3,
@@ -197,6 +225,7 @@ export class GameplayMechanics {
       onCollect: (points: number) => void;
       onHazard: () => void;
       onJumpPad: (force: number) => void;
+      onSpeedRing: () => void;
       onGoal: () => void;
     }
   ) {
@@ -236,6 +265,24 @@ export class GameplayMechanics {
               this.particles.emitBoosterShockwave(item.mesh.position);
             }
             callbacks.onJumpPad(item.data.boostForce);
+          }
+        }
+      } else if (item.type === 'speed_ring') {
+        if (item.data.ring) {
+          item.data.ring.rotation.y += dt * 2.0;
+        }
+        if (item.data.cooldown > 0) {
+          item.data.cooldown -= dt;
+          item.mesh.scale.lerp(new THREE.Vector3(0.5, 0.5, 0.5), 0.15);
+        } else {
+          item.mesh.scale.lerp(new THREE.Vector3(1.0, 1.0, 1.0), 0.15);
+          const dist = item.mesh.position.distanceTo(playerPos);
+          if (dist < 1.3) {
+            item.data.cooldown = 4.0;
+            if (this.particles) {
+              this.particles.emitBoosterShockwave(item.mesh.position);
+            }
+            callbacks.onSpeedRing();
           }
         }
       } else if (item.type === 'moving_platform') {

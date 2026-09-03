@@ -141,6 +141,9 @@ export class GameManager {
         onJumpPad: (force) => {
           this.controller.jump(force);
         },
+        onSpeedRing: () => {
+          this.controller.applyTurbo(5.0);
+        },
         onGoal: () => {
           this.status = 'won';
           this.notify();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameState } from '../game/GameManager';
 import { StudioEngine } from '../engine/StudioEngine';
 import { 
@@ -14,7 +14,9 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  Compass
 } from 'lucide-react';
 
 interface GameHUDProps {
@@ -31,6 +33,16 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   engine
 }) => {
   const [avatar, setAvatar] = useState<'voxel_runner' | 'marble_ball'>('voxel_runner');
+  const [, setFrame] = useState(0);
+
+  // Fast HUD tick for radar & turbo timer
+  useEffect(() => {
+    if (gameState.mode !== 'play') return;
+    const interval = setInterval(() => {
+      setFrame(f => (f + 1) % 1000);
+    }, 60);
+    return () => clearInterval(interval);
+  }, [gameState.mode]);
 
   if (gameState.mode !== 'play') return null;
 
@@ -58,6 +70,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     if (!engine) return;
     engine.game.controller.jump();
   };
+
+  const turboRemaining = engine?.game?.controller?.turboTimer || 0;
+  const playerPos = engine?.game?.controller?.mesh?.position;
+  const radarRadius = 40; // 40m radar radius
 
   return (
     <div className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-between p-4 md:p-6 select-none font-sans">
@@ -96,8 +112,16 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
         </div>
 
-        {/* Center: Timer & Avatar Switcher */}
+        {/* Center: Timer & Turbo & Avatar Switcher */}
         <div className="flex items-center gap-2">
+          {/* Turbo Active Badge */}
+          {turboRemaining > 0 && (
+            <div className="glass-panel px-3 py-1.5 rounded-2xl flex items-center gap-1.5 border border-amber-500/50 bg-amber-500/10 text-amber-300 font-mono text-xs font-bold animate-pulse shadow-lg">
+              <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span>TURBO {turboRemaining.toFixed(1)}s</span>
+            </div>
+          )}
+
           <div className="glass-panel px-4 py-1.5 rounded-2xl flex items-center gap-2 border border-white/10 shadow-lg">
             <Clock className="w-4 h-4 text-amber-400" />
             <span className="font-mono text-xs md:text-sm font-bold text-amber-200">
@@ -134,6 +158,68 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <X className="w-4 h-4 text-slate-400 group-hover:text-white" />
         </button>
       </div>
+
+      {/* Top Right Mini-Map Radar */}
+      {playerPos && engine && (
+        <div className="absolute top-16 right-4 md:right-6 pointer-events-auto">
+          <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-full glass-panel border border-white/15 shadow-2xl overflow-hidden bg-slate-950/80">
+            {/* Grid Crosshairs */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-full h-[1px] bg-white/10" />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="h-full w-[1px] bg-white/10" />
+            </div>
+            <div className="absolute inset-0 rounded-full border border-white/5 m-3" />
+
+            {/* Radar Sweep Effect */}
+            <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgba(14,165,233,0.15)_360deg)] animate-spin [animation-duration:4s]" />
+
+            {/* Player Center Blip */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] z-10" />
+
+            {/* Entity Blips */}
+            {engine.game.mechanics.items.map((item, idx) => {
+              if (item.collected) return null;
+              const dx = item.mesh.position.x - playerPos.x;
+              const dz = item.mesh.position.z - playerPos.z;
+
+              // Scale to radar coordinates (-1 to 1)
+              const nx = dx / radarRadius;
+              const ny = dz / radarRadius;
+              const dist = Math.sqrt(nx * nx + ny * ny);
+
+              // Clamp to radar circle edge
+              const clampedDist = Math.min(dist, 0.88);
+              const angle = Math.atan2(ny, nx);
+              const px = 50 + Math.cos(angle) * clampedDist * 50;
+              const py = 50 + Math.sin(angle) * clampedDist * 50;
+
+              let dotColor = 'bg-sky-400 shadow-[0_0_5px_#38bdf8]';
+              if (item.type === 'goal') dotColor = 'bg-amber-400 shadow-[0_0_8px_#f59e0b] w-3 h-3';
+              else if (item.type === 'jump_pad') dotColor = 'bg-emerald-400';
+              else if (item.type === 'speed_ring') dotColor = 'bg-fuchsia-400 shadow-[0_0_6px_#e879f9]';
+              else if (item.type === 'hazard') dotColor = 'bg-rose-500/70';
+
+              return (
+                <div
+                  key={idx}
+                  className={`absolute rounded-full -translate-x-1/2 -translate-y-1/2 transition-all duration-75 ${
+                    item.type === 'goal' ? 'w-3 h-3' : 'w-2 h-2'
+                  } ${dotColor}`}
+                  style={{ left: `${px}%`, top: `${py}%` }}
+                />
+              );
+            })}
+
+            {/* Radar Label */}
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-mono text-slate-400 tracking-wider flex items-center gap-0.5">
+              <Compass className="w-2.5 h-2.5 text-sky-400" />
+              <span>RADAR</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* On-Screen Mobile Virtual Controls (D-Pad Left, Jump Button Right) */}
       <div className="flex items-end justify-between pointer-events-auto pb-2">
