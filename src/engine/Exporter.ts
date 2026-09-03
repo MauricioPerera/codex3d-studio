@@ -2,6 +2,25 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js';
 
+export interface CameraPoseTelemetry {
+  position: [number, number, number];
+  target: [number, number, number];
+  distance: number;
+  pitchDegrees: number; // 0 = eye level, 90 = top down
+  yawDegrees: number;   // 0 = front, 90 = side
+  fov: number;
+  viewDescription: string;
+}
+
+export interface PhotorealConditioningBundle {
+  colorPassUrl: string;
+  depthPassUrl: string;
+  normalPassUrl: string;
+  camera: CameraPoseTelemetry;
+  suggestedPrompt: string;
+  resolution: string;
+}
+
 export class Exporter {
   constructor(
     private scene: THREE.Scene,
@@ -55,7 +74,6 @@ export class Exporter {
     const width = options.width || 1200;
     const height = options.height || 1200;
 
-    // Save previous state
     const prevSize = new THREE.Vector2();
     this.renderer.getSize(prevSize);
     const prevClearColor = new THREE.Color();
@@ -63,12 +81,10 @@ export class Exporter {
     const prevClearAlpha = this.renderer.getClearAlpha();
     const prevAspect = this.camera.aspect;
 
-    // Setup snapshot dimensions & background
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
 
-    // Toggle grid visibility during capture
     const grid = this.scene.getObjectByName('__Studio_Grid__');
     const ground = this.scene.getObjectByName('__Studio_Ground__');
     const wasGridVisible = grid ? grid.visible : false;
@@ -82,11 +98,9 @@ export class Exporter {
       this.renderer.setClearColor(0x0d101a, 1.0);
     }
 
-    // Render frame
     this.renderer.render(this.scene, this.camera);
     const dataUrl = this.renderer.domElement.toDataURL('image/png');
 
-    // Restore previous state
     this.renderer.setSize(prevSize.x, prevSize.y, false);
     this.renderer.setClearColor(prevClearColor, prevClearAlpha);
     this.camera.aspect = prevAspect;
@@ -94,7 +108,159 @@ export class Exporter {
     if (grid) grid.visible = wasGridVisible;
     if (ground) ground.visible = wasGroundVisible;
 
-    // Render viewport back
+    this.renderer.render(this.scene, this.camera);
+
+    return dataUrl;
+  }
+
+  public getCameraTelemetry(targetPos: THREE.Vector3 = new THREE.Vector3(0, 1.5, 0)): CameraPoseTelemetry {
+    const pos = this.camera.position;
+    const dx = pos.x - targetPos.x;
+    const dy = pos.y - targetPos.y;
+    const dz = pos.z - targetPos.z;
+    const horizontalDist = Math.sqrt(dx * dx + dz * dz);
+    const totalDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    const pitchRad = Math.atan2(dy, Math.max(0.001, horizontalDist));
+    const pitchDeg = Math.round(pitchRad * (180 / Math.PI));
+
+    const yawRad = Math.atan2(dx, dz);
+    const yawDeg = Math.round(yawRad * (180 / Math.PI));
+
+    let viewDesc = 'Three-quarter perspective';
+    if (pitchDeg > 65) viewDesc = 'Steep overhead top-down bird-eye view';
+    else if (pitchDeg > 40) viewDesc = 'High-angle elevated perspective';
+    else if (pitchDeg < 15 && pitchDeg > -10) viewDesc = 'Eye-level frontal horizon perspective';
+    else if (pitchDeg <= -10) viewDesc = 'Low-angle hero worm-eye perspective';
+
+    return {
+      position: [Math.round(pos.x * 100) / 100, Math.round(pos.y * 100) / 100, Math.round(pos.z * 100) / 100],
+      target: [Math.round(targetPos.x * 100) / 100, Math.round(targetPos.y * 100) / 100, Math.round(targetPos.z * 100) / 100],
+      distance: Math.round(totalDist * 100) / 100,
+      pitchDegrees: pitchDeg,
+      yawDegrees: yawDeg,
+      fov: Math.round(this.camera.fov),
+      viewDescription: viewDesc
+    };
+  }
+
+  public capturePhotorealConditioning(options: {
+    targetPos?: THREE.Vector3;
+    style?: 'golden_hour' | 'crisp_daylight' | 'blue_hour' | 'moody_rain';
+    width?: number;
+    height?: number;
+  } = {}): PhotorealConditioningBundle {
+    const width = options.width || 1024;
+    const height = options.height || 1024;
+    const target = options.targetPos || new THREE.Vector3(0, 1.5, 0);
+
+    const telemetry = this.getCameraTelemetry(target);
+
+    // 1. Color Beauty Pass
+    const colorPassUrl = this.renderSnapshot({ width, height, transparent: false });
+
+    // 2. ControlNet Depth Pass
+    const depthPassUrl = this.renderDepthPass(width, height);
+
+    // 3. ControlNet Normal Pass
+    const normalPassUrl = this.renderNormalPass(width, height);
+
+    // 4. Generate structured architectural prompt
+    let styleDescriptor = 'warm golden hour sunset lighting with soft directional sunlight';
+    if (options.style === 'crisp_daylight') styleDescriptor = 'clean midday sun with bright sky and crisp architectural shadows';
+    else if (options.style === 'blue_hour') styleDescriptor = 'twilight blue hour evening with warm interior lights glowing through windows';
+    else if (options.style === 'moody_rain') styleDescriptor = 'overcast cloudy sky with soft diffuse reflections on wet stone pavement';
+
+    const suggestedPrompt = `Ultra-photorealistic architectural photograph of the structure in the reference image, STRICTLY preserving the camera viewpoint (${telemetry.viewDescription} at exactly ${telemetry.pitchDegrees}-degree downward pitch angle). Architectural Digest quality, ${styleDescriptor}, photorealistic materials, perfectly matched geometry, 8k resolution.`;
+
+    return {
+      colorPassUrl,
+      depthPassUrl,
+      normalPassUrl,
+      camera: telemetry,
+      suggestedPrompt,
+      resolution: `${width}x${height}`
+    };
+  }
+
+  private renderDepthPass(width: number, height: number): string {
+    const prevOverride = this.scene.overrideMaterial;
+    const prevClearColor = new THREE.Color();
+    this.renderer.getClearColor(prevClearColor);
+    const prevClearAlpha = this.renderer.getClearAlpha();
+    const prevAspect = this.camera.aspect;
+    const prevSize = new THREE.Vector2();
+    this.renderer.getSize(prevSize);
+
+    const prevNear = this.camera.near;
+    const prevFar = this.camera.far;
+    const dist = this.camera.position.length();
+    this.camera.near = Math.max(0.1, dist * 0.4);
+    this.camera.far = dist * 1.6 + 2.0;
+
+    this.renderer.setSize(width, height, false);
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+
+    // Toggle grid/ground helpers
+    const grid = this.scene.getObjectByName('__Studio_Grid__');
+    const wasGrid = grid?.visible;
+    if (grid) grid.visible = false;
+
+    // Use Depth Material
+    const depthMaterial = new THREE.MeshDepthMaterial();
+    this.scene.overrideMaterial = depthMaterial;
+    this.renderer.setClearColor(0x000000, 1.0);
+
+    this.renderer.render(this.scene, this.camera);
+    const dataUrl = this.renderer.domElement.toDataURL('image/png');
+
+    // Restore
+    this.camera.near = prevNear;
+    this.camera.far = prevFar;
+    this.scene.overrideMaterial = prevOverride;
+    this.renderer.setSize(prevSize.x, prevSize.y, false);
+    this.renderer.setClearColor(prevClearColor, prevClearAlpha);
+    this.camera.aspect = prevAspect;
+    this.camera.updateProjectionMatrix();
+    if (grid && wasGrid !== undefined) grid.visible = wasGrid;
+    this.renderer.render(this.scene, this.camera);
+
+    return dataUrl;
+  }
+
+  private renderNormalPass(width: number, height: number): string {
+    const prevOverride = this.scene.overrideMaterial;
+    const prevClearColor = new THREE.Color();
+    this.renderer.getClearColor(prevClearColor);
+    const prevClearAlpha = this.renderer.getClearAlpha();
+    const prevAspect = this.camera.aspect;
+    const prevSize = new THREE.Vector2();
+    this.renderer.getSize(prevSize);
+
+    this.renderer.setSize(width, height, false);
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+
+    const grid = this.scene.getObjectByName('__Studio_Grid__');
+    const wasGrid = grid?.visible;
+    if (grid) grid.visible = false;
+
+    // Use Normal Material
+    const normalMaterial = new THREE.MeshNormalMaterial();
+    this.scene.overrideMaterial = normalMaterial;
+    this.renderer.setClearColor(0x7f7fff, 1.0); // neutral normal blue
+
+    this.renderer.render(this.scene, this.camera);
+    const dataUrl = this.renderer.domElement.toDataURL('image/png');
+
+    // Restore
+    this.scene.overrideMaterial = prevOverride;
+    this.renderer.setSize(prevSize.x, prevSize.y, false);
+    this.renderer.setClearColor(prevClearColor, prevClearAlpha);
+    this.camera.aspect = prevAspect;
+    this.camera.updateProjectionMatrix();
+    if (grid && wasGrid !== undefined) grid.visible = wasGrid;
     this.renderer.render(this.scene, this.camera);
 
     return dataUrl;

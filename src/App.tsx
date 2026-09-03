@@ -6,6 +6,7 @@ import { FloatingControls } from './components/FloatingControls';
 import { SceneHierarchyDrawer } from './components/SceneHierarchyDrawer';
 import { WebMCPConsoleDrawer } from './components/WebMCPConsoleDrawer';
 import { RenderExportModal } from './components/RenderExportModal';
+import { PhotorealModal } from './components/PhotorealModal';
 
 export const App: React.FC = () => {
   const [engine, setEngine] = useState<StudioEngine | null>(null);
@@ -13,6 +14,7 @@ export const App: React.FC = () => {
   const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [isRenderModalOpen, setIsRenderModalOpen] = useState(false);
+  const [isPhotorealModalOpen, setIsPhotorealModalOpen] = useState(false);
 
   const handleEngineReady = useCallback((eng: StudioEngine) => {
     setEngine(eng);
@@ -33,6 +35,7 @@ export const App: React.FC = () => {
       <FloatingControls
         engine={engine}
         onOpenRenderModal={() => setIsRenderModalOpen(true)}
+        onOpenPhotorealModal={() => setIsPhotorealModalOpen(true)}
         onToggleHierarchy={() => setIsHierarchyOpen(prev => !prev)}
         isHierarchyOpen={isHierarchyOpen}
         onToggleConsole={() => setIsConsoleOpen(prev => !prev)}
@@ -57,6 +60,13 @@ export const App: React.FC = () => {
         engine={engine}
         isOpen={isRenderModalOpen}
         onClose={() => setIsRenderModalOpen(false)}
+      />
+
+      {/* AI Photoreal Depth & Conditioning Suite Modal */}
+      <PhotorealModal
+        engine={engine}
+        isOpen={isPhotorealModalOpen}
+        onClose={() => setIsPhotorealModalOpen(false)}
       />
     </div>
   );

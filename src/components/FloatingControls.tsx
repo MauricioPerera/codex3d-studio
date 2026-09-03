@@ -15,6 +15,7 @@ import {
 interface FloatingControlsProps {
   engine: StudioEngine | null;
   onOpenRenderModal: () => void;
+  onOpenPhotorealModal: () => void;
   onToggleHierarchy: () => void;
   isHierarchyOpen: boolean;
   onToggleConsole: () => void;
@@ -24,6 +25,7 @@ interface FloatingControlsProps {
 export const FloatingControls: React.FC<FloatingControlsProps> = ({
   engine,
   onOpenRenderModal,
+  onOpenPhotorealModal,
   onToggleHierarchy,
   isHierarchyOpen,
   onToggleConsole,
@@ -170,13 +172,25 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
 
         <div className="w-[1px] h-4 bg-white/10 my-auto" />
 
+        {/* AI Photoreal Depth & Conditioning Suite */}
+        <button
+          onClick={onOpenPhotorealModal}
+          className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white px-3 py-1 rounded-lg font-medium transition-all shadow-md active:scale-95 border border-emerald-400/30"
+          title="AI Photoreal Conditioning & Depth Suite"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+          <span>AI Photoreal</span>
+        </button>
+
+        <div className="w-[1px] h-4 bg-white/10 my-auto" />
+
         {/* Render Snapshot & Export */}
         <button
           onClick={onOpenRenderModal}
           className="flex items-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white px-3 py-1 rounded-lg font-medium transition-all shadow-md active:scale-95"
         >
           <Download className="w-3.5 h-3.5" />
-          <span>Render & Export</span>
+          <span>Export 3D</span>
         </button>
 
         <div className="w-[1px] h-4 bg-white/10 my-auto" />

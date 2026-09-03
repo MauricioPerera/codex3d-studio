@@ -626,5 +626,43 @@ export function registerStudioTools(engine: StudioEngine): WebMCPBridge {
     }
   });
 
+  // 15. Capture Photoreal Conditioning (Color + Depth Map + Telemetry)
+  bridge.registerTool({
+    name: 'capture_photoreal_conditioning',
+    description: 'Captures a clean high-fidelity conditioning bundle for AI photorealistic image synthesis: beauty color pass, ControlNet depth map pass, ControlNet normal map pass, exact camera telemetry (pitch degrees, yaw, distance, FOV), and pre-built architectural prompt.',
+    parameters: {
+      type: 'object',
+      properties: {
+        style: {
+          type: 'string',
+          enum: ['golden_hour', 'crisp_daylight', 'blue_hour', 'moody_rain'],
+          description: 'Atmospheric lighting style'
+        },
+        width: { type: 'number', description: 'Resolution width (default 1024)' },
+        height: { type: 'number', description: 'Resolution height (default 1024)' }
+      }
+    },
+    execute: (args) => {
+      const bundle = engine.exporter.capturePhotorealConditioning({
+        style: args.style || 'golden_hour',
+        width: args.width || 1024,
+        height: args.height || 1024
+      });
+      return {
+        camera: bundle.camera,
+        suggestedPrompt: bundle.suggestedPrompt,
+        resolution: bundle.resolution,
+        colorPassLength: bundle.colorPassUrl.length,
+        depthPassLength: bundle.depthPassUrl.length,
+        normalPassLength: bundle.normalPassUrl.length,
+        colorPassUrl: bundle.colorPassUrl,
+        depthPassUrl: bundle.depthPassUrl,
+        normalPassUrl: bundle.normalPassUrl,
+        message: `Captured conditioning bundle at ${bundle.camera.pitchDegrees}° camera pitch`
+      };
+    }
+  });
+
   return bridge;
 }
+
