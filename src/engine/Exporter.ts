@@ -147,6 +147,7 @@ export class Exporter {
   public capturePhotorealConditioning(options: {
     targetPos?: THREE.Vector3;
     style?: 'golden_hour' | 'crisp_daylight' | 'blue_hour' | 'moody_rain';
+    category?: 'auto' | 'product' | 'architecture' | 'scifi' | 'sculpture';
     width?: number;
     height?: number;
   } = {}): PhotorealConditioningBundle {
@@ -165,13 +166,43 @@ export class Exporter {
     // 3. ControlNet Normal Pass
     const normalPassUrl = this.renderNormalPass(width, height);
 
-    // 4. Generate structured architectural prompt
-    let styleDescriptor = 'warm golden hour sunset lighting with soft directional sunlight';
-    if (options.style === 'crisp_daylight') styleDescriptor = 'clean midday sun with bright sky and crisp architectural shadows';
-    else if (options.style === 'blue_hour') styleDescriptor = 'twilight blue hour evening with warm interior lights glowing through windows';
-    else if (options.style === 'moody_rain') styleDescriptor = 'overcast cloudy sky with soft diffuse reflections on wet stone pavement';
+    // 4. Auto-detect subject category from active scene objects
+    let detectedCategory = options.category || 'auto';
+    if (detectedCategory === 'auto') {
+      const names: string[] = [];
+      this.scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh && obj.userData?.isStudioAsset) {
+          names.push(obj.name.toLowerCase());
+        }
+      });
+      const allNames = names.join(' ');
+      if (allNames.includes('house') || allNames.includes('roof') || allNames.includes('window') || allNames.includes('door') || allNames.includes('floor')) {
+        detectedCategory = 'architecture';
+      } else if (allNames.includes('crate') || allNames.includes('cyber') || allNames.includes('neon') || allNames.includes('gear')) {
+        detectedCategory = 'scifi';
+      } else if (allNames.includes('sculpt') || allNames.includes('plinth') || allNames.includes('monolith')) {
+        detectedCategory = 'sculpture';
+      } else {
+        detectedCategory = 'product';
+      }
+    }
 
-    const suggestedPrompt = `Ultra-photorealistic architectural photograph of the structure in the reference image, STRICTLY preserving the camera viewpoint (${telemetry.viewDescription} at exactly ${telemetry.pitchDegrees}-degree downward pitch angle). Architectural Digest quality, ${styleDescriptor}, photorealistic materials, perfectly matched geometry, 8k resolution.`;
+    // 5. Generate tailored prompt based on category and atmospheric lighting
+    let styleDescriptor = 'warm golden hour sunset lighting with soft directional sunlight';
+    if (options.style === 'crisp_daylight') styleDescriptor = 'clean bright daylight with sharp details and soft realistic contact shadows';
+    else if (options.style === 'blue_hour') styleDescriptor = 'sophisticated blue hour twilight with cool ambient tones, subtle steam/reflections, and gentle side rim lighting';
+    else if (options.style === 'moody_rain') styleDescriptor = 'overcast moody studio softbox lighting with rich smooth gradients';
+
+    let subjectPrefix = 'Photorealistic studio commercial product photograph of the object in the reference image';
+    if (detectedCategory === 'architecture') {
+      subjectPrefix = 'Ultra-photorealistic architectural photograph of the structure in the reference image';
+    } else if (detectedCategory === 'scifi') {
+      subjectPrefix = 'Cinematic photorealistic industrial render of the mechanical asset in the reference image';
+    } else if (detectedCategory === 'sculpture') {
+      subjectPrefix = 'Fine art gallery photograph of the sculptural piece in the reference image';
+    }
+
+    const suggestedPrompt = `${subjectPrefix}, STRICTLY preserving the camera viewpoint (${telemetry.viewDescription} at exactly ${telemetry.pitchDegrees}-degree downward pitch angle). ${styleDescriptor}, premium photorealistic materials, razor-sharp focus, perfectly matched 3D geometry, 8k resolution.`;
 
     return {
       colorPassUrl,

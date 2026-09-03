@@ -28,21 +28,26 @@ export const PhotorealModal: React.FC<PhotorealModalProps> = ({
 }) => {
   const [activePass, setActivePass] = useState<'color' | 'depth' | 'normal'>('color');
   const [selectedStyle, setSelectedStyle] = useState<'golden_hour' | 'crisp_daylight' | 'blue_hour' | 'moody_rain'>('golden_hour');
+  const [selectedCategory, setSelectedCategory] = useState<'auto' | 'product' | 'architecture' | 'scifi' | 'sculpture'>('auto');
   const [bundle, setBundle] = useState<PhotorealConditioningBundle | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [editedPrompt, setEditedPrompt] = useState('');
 
   useEffect(() => {
     if (isOpen && engine) {
-      refreshBundle(selectedStyle);
+      refreshBundle(selectedStyle, selectedCategory);
     }
-  }, [isOpen, selectedStyle]);
+  }, [isOpen, selectedStyle, selectedCategory]);
 
   if (!isOpen || !engine) return null;
 
-  const refreshBundle = (style: 'golden_hour' | 'crisp_daylight' | 'blue_hour' | 'moody_rain') => {
+  const refreshBundle = (
+    style: 'golden_hour' | 'crisp_daylight' | 'blue_hour' | 'moody_rain',
+    category: 'auto' | 'product' | 'architecture' | 'scifi' | 'sculpture'
+  ) => {
     const res = engine.exporter.capturePhotorealConditioning({
       style,
+      category,
       width: 1024,
       height: 1024
     });
@@ -201,6 +206,34 @@ export const PhotorealModal: React.FC<PhotorealModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Subject Category Selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300 block">
+                Subject Context
+              </label>
+              <div className="flex flex-wrap gap-1.5 text-[11px]">
+                {[
+                  { id: 'auto', label: '✨ Auto Detect' },
+                  { id: 'product', label: '☕ Product' },
+                  { id: 'architecture', label: '🏛️ Architecture' },
+                  { id: 'scifi', label: '🛸 Sci-Fi Prop' },
+                  { id: 'sculpture', label: '🗿 Sculpture' }
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id as any)}
+                    className={`px-2.5 py-1 rounded-lg border transition-all ${
+                      selectedCategory === cat.id
+                        ? 'bg-sky-500/20 border-sky-500/50 text-sky-200 font-medium'
+                        : 'bg-slate-900/40 hover:bg-white/5 border-white/5 text-slate-400'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Atmosphere Style Picker */}
             <div className="space-y-2">
