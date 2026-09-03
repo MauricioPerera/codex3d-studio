@@ -33,7 +33,16 @@ export const SceneHierarchyDrawer: React.FC<SceneHierarchyDrawerProps> = ({
   const materialPresets = engine.materials.getPresetsList();
 
   const handleSelect = (id: string) => {
-    setSelectedObjectId(prev => (prev === id ? null : id));
+    setSelectedObjectId(prev => {
+      const next = prev === id ? null : id;
+      if (next) {
+        const mesh = engine.meshes.getObjectById(next);
+        if (mesh) engine.selectObject(mesh);
+      } else {
+        engine.selectObject(null);
+      }
+      return next;
+    });
   };
 
   const handleToggleVisibility = (id: string, e: React.MouseEvent) => {

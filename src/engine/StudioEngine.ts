@@ -18,6 +18,8 @@ export class StudioEngine {
   public exporter: Exporter;
   public game: GameManager;
 
+  public selectedObject: THREE.Object3D | null = null;
+  private selectionHelper: THREE.BoxHelper | null = null;
   private isTurntableActive = false;
   private turntableSpeed = 0.008;
   private isWireframe = false;
@@ -94,9 +96,29 @@ export class StudioEngine {
         this.controls.update();
       }
 
+      if (this.selectionHelper && this.selectedObject) {
+        this.selectionHelper.update();
+      }
+
       this.renderer.render(this.scene, this.camera);
     };
     animate();
+  }
+
+  public selectObject(object: THREE.Object3D | null) {
+    this.selectedObject = object;
+    if (this.selectionHelper) {
+      this.scene.remove(this.selectionHelper);
+      this.selectionHelper.dispose();
+      this.selectionHelper = null;
+    }
+    if (object) {
+      this.selectionHelper = new THREE.BoxHelper(object, 0x38bdf8);
+      this.selectionHelper.renderOrder = 999;
+      (this.selectionHelper.material as THREE.Material).depthTest = false;
+      this.scene.add(this.selectionHelper);
+    }
+    this.notifyChange();
   }
 
   public resize(width: number, height: number) {

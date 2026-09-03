@@ -9,6 +9,7 @@ import { RenderExportModal } from './components/RenderExportModal';
 import { PhotorealModal } from './components/PhotorealModal';
 import { GameHUD } from './components/GameHUD';
 import { EntitySpawnerBar } from './components/EntitySpawnerBar';
+import { EntityInspector } from './components/EntityInspector';
 import { GameState } from './game/GameManager';
 
 export const App: React.FC = () => {
@@ -107,6 +108,9 @@ export const App: React.FC = () => {
         isOpen={isSpawnerOpen}
         onClose={() => setIsSpawnerOpen(false)}
       />
+
+      {/* In-Editor Entity Inspector & Customizer Panel */}
+      <EntityInspector engine={engine} />
     </div>
   );
 };
