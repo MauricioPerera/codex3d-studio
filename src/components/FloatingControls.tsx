@@ -14,13 +14,15 @@ import {
   Pause,
   Gamepad2,
   Volume2,
-  VolumeX
+  VolumeX,
+  Wand2
 } from 'lucide-react';
 
 interface FloatingControlsProps {
   engine: StudioEngine | null;
   onOpenRenderModal: () => void;
   onOpenPhotorealModal: () => void;
+  onOpenAIGenerator: () => void;
   onToggleHierarchy: () => void;
   isHierarchyOpen: boolean;
   onToggleConsole: () => void;
@@ -31,6 +33,7 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
   engine,
   onOpenRenderModal,
   onOpenPhotorealModal,
+  onOpenAIGenerator,
   onToggleHierarchy,
   isHierarchyOpen,
   onToggleConsole,
@@ -110,6 +113,18 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
           </>
         )}
       </button>
+
+      {/* AI Level Builder Button */}
+      {engine.game.mode === 'edit' && (
+        <button
+          onClick={onOpenAIGenerator}
+          title="Generar nivel 3D con IA (Prompt to Level)"
+          className="flex items-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white px-3.5 py-1.5 rounded-2xl font-semibold transition-all shadow-lg active:scale-95 border border-sky-400/30"
+        >
+          <Wand2 className="w-4 h-4 text-sky-200" />
+          <span className="text-xs">AI Level Builder</span>
+        </button>
+      )}
 
       {/* Viewport Action Pill */}
       <div className="glass-pill px-2 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xl border border-white/10 text-xs">

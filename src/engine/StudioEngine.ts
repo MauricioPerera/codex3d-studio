@@ -5,6 +5,7 @@ import { MaterialManager } from './MaterialManager';
 import { MeshManager } from './MeshManager';
 import { Exporter } from './Exporter';
 import { GameManager } from '../game/GameManager';
+import { LevelGeneratorAI } from '../game/LevelGeneratorAI';
 import { CameraPreset, LightingPreset, SceneInspectionResult } from './types';
 
 export class StudioEngine {
@@ -17,6 +18,7 @@ export class StudioEngine {
   public meshes: MeshManager;
   public exporter: Exporter;
   public game: GameManager;
+  public levelGenerator: LevelGeneratorAI;
 
   public selectedObject: THREE.Object3D | null = null;
   private selectionHelper: THREE.BoxHelper | null = null;
@@ -71,6 +73,7 @@ export class StudioEngine {
     this.meshes = new MeshManager(this.scene, this.materials);
     this.exporter = new Exporter(this.scene, this.renderer, this.camera);
     this.game = new GameManager(this.scene, this.camera, this.controls);
+    this.levelGenerator = new LevelGeneratorAI(this);
 
     // 6. Start render loop
     this.startLoop();

@@ -946,6 +946,32 @@ export function registerStudioTools(engine: StudioEngine): WebMCPBridge {
     }
   });
 
+  // 20. Generate Level from Natural Language Prompt
+  bridge.registerTool({
+    name: 'generate_level_from_prompt',
+    description: 'Generates a complete playable 3D platformer level from a natural language prompt (e.g. "spiral tower climb", "speedway turbo dash", "lava arena").',
+    parameters: {
+      type: 'object',
+      properties: {
+        prompt: { type: 'string', description: 'Natural language description of the level, obstacles, and theme' },
+        theme: { type: 'string', enum: ['cyber_neon', 'dungeon', 'sunset', 'minimalist'], description: 'Visual lighting and material theme' },
+        difficulty: { type: 'string', enum: ['easy', 'medium', 'hard'], description: 'Platform distance and jump complexity' }
+      },
+      required: ['prompt']
+    },
+    execute: async (args) => {
+      const meta = await engine.levelGenerator.generateFromPrompt({
+        prompt: args.prompt,
+        theme: args.theme,
+        difficulty: args.difficulty
+      });
+      return {
+        ...meta,
+        message: `Successfully generated 3D level: "${meta.title}"`
+      };
+    }
+  });
+
   return bridge;
 }
 
