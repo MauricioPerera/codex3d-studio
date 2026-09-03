@@ -11,7 +11,10 @@ import {
   Layers,
   Sparkles,
   Play,
-  Pause
+  Pause,
+  Gamepad2,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 interface FloatingControlsProps {
@@ -37,6 +40,8 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
   const [isWireframe, setIsWireframe] = useState(false);
   const [activeLighting, setActiveLighting] = useState<LightingPreset>('studio_high_key');
   const [isLightingMenuOpen, setIsLightingMenuOpen] = useState(false);
+  const [isBGMActive, setIsBGMActive] = useState(false);
+  const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
 
   if (!engine) return null;
 
@@ -52,6 +57,16 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
   const handleWireframe = () => {
     const newState = engine.toggleWireframe();
     setIsWireframe(newState);
+  };
+
+  const handleToggleBGM = () => {
+    const active = engine.game.audio.toggleBGM();
+    setIsBGMActive(active);
+  };
+
+  const handleSelectGameTemplate = (template: string) => {
+    (window as any).webmcp?.executeTool('load_game_template', { template });
+    setIsGameMenuOpen(false);
   };
 
   const handleLighting = (preset: LightingPreset) => {
@@ -192,6 +207,53 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
                 >
                   {preset.label}
                   {activeLighting === preset.id && <Sparkles className="w-3 h-3 text-sky-400" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="w-[1px] h-4 bg-white/10 my-auto" />
+
+        {/* 8-Bit Procedural Synthwave BGM Toggle */}
+        <button
+          onClick={handleToggleBGM}
+          title={isBGMActive ? 'Mute 8-Bit BGM' : 'Play 8-Bit Synthwave BGM'}
+          className={`p-1.5 rounded-lg transition-colors ${
+            isBGMActive ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/40 animate-pulse' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+          }`}
+        >
+          {isBGMActive ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+        </button>
+
+        {/* Playable Game Templates Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setIsGameMenuOpen(!isGameMenuOpen)}
+            title="Load Game Level Template"
+            className={`p-1.5 rounded-lg transition-colors ${
+              isGameMenuOpen ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <Gamepad2 className="w-4 h-4" />
+          </button>
+
+          {isGameMenuOpen && (
+            <div className="absolute right-0 mt-2 w-52 glass-panel rounded-xl py-1.5 shadow-2xl border border-white/10 z-30">
+              <div className="px-3 py-1 text-[10px] uppercase font-mono tracking-wider text-slate-400 border-b border-white/5">
+                Playable Game Levels
+              </div>
+              {[
+                { id: 'cyber_obby', label: '⚡ Cyber Obby Parkour' },
+                { id: 'dungeon_parkour', label: '🏰 Dungeon Keep' },
+                { id: 'gem_runner_arena', label: '🏟️ Gem Bounce Arena' }
+              ].map(lvl => (
+                <button
+                  key={lvl.id}
+                  onClick={() => handleSelectGameTemplate(lvl.id)}
+                  className="w-full text-left px-3 py-2 text-xs transition-colors text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-200 flex items-center justify-between"
+                >
+                  <span>{lvl.label}</span>
                 </button>
               ))}
             </div>

@@ -1,5 +1,8 @@
 export class AudioSystem {
   private ctx: AudioContext | null = null;
+  private bgmTimer: number | null = null;
+  public isBGMPlaying = false;
+  private bgmStep = 0;
 
   private init() {
     if (!this.ctx) {
@@ -10,6 +13,69 @@ export class AudioSystem {
     }
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
+    }
+  }
+
+  public toggleBGM(): boolean {
+    if (this.isBGMPlaying) {
+      this.stopBGM();
+    } else {
+      this.startBGM();
+    }
+    return this.isBGMPlaying;
+  }
+
+  public startBGM() {
+    this.init();
+    if (!this.ctx) return;
+    this.isBGMPlaying = true;
+    this.bgmStep = 0;
+
+    // 120 BPM chiptune arpeggios (Am scale)
+    const bassScale = [110, 110, 130.81, 146.83, 164.81, 146.83, 130.81, 98]; // A2, C3, D3, E3...
+    const leadScale = [440, 523.25, 659.25, 783.99, 880, 783.99, 659.25, 523.25];
+
+    if (this.bgmTimer) clearInterval(this.bgmTimer);
+
+    this.bgmTimer = window.setInterval(() => {
+      if (!this.isBGMPlaying || !this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Bass pulse
+      const bassOsc = this.ctx.createOscillator();
+      const bassGain = this.ctx.createGain();
+      bassOsc.type = 'triangle';
+      bassOsc.frequency.setValueAtTime(bassScale[this.bgmStep % bassScale.length], now);
+      bassGain.gain.setValueAtTime(0.06, now);
+      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      bassOsc.connect(bassGain);
+      bassGain.connect(this.ctx.destination);
+      bassOsc.start(now);
+      bassOsc.stop(now + 0.23);
+
+      // Lead note every 2 steps
+      if (this.bgmStep % 2 === 0) {
+        const leadOsc = this.ctx.createOscillator();
+        const leadGain = this.ctx.createGain();
+        leadOsc.type = 'sine';
+        leadOsc.frequency.setValueAtTime(leadScale[(this.bgmStep / 2) % leadScale.length], now);
+        leadGain.gain.setValueAtTime(0.035, now);
+        leadGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        leadOsc.connect(leadGain);
+        leadGain.connect(this.ctx.destination);
+        leadOsc.start(now);
+        leadOsc.stop(now + 0.36);
+      }
+
+      this.bgmStep++;
+    }, 240); // ~125 BPM
+  }
+
+  public stopBGM() {
+    this.isBGMPlaying = false;
+    if (this.bgmTimer) {
+      clearInterval(this.bgmTimer);
+      this.bgmTimer = null;
     }
   }
 

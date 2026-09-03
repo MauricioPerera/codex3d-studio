@@ -749,7 +749,7 @@ export function registerStudioTools(engine: StudioEngine): WebMCPBridge {
       properties: {
         template: {
           type: 'string',
-          enum: ['cyber_obby', 'gem_parkour'],
+          enum: ['cyber_obby', 'dungeon_parkour', 'gem_runner_arena'],
           description: 'Preset level template'
         }
       },
@@ -759,64 +759,179 @@ export function registerStudioTools(engine: StudioEngine): WebMCPBridge {
       // 1. Clear scene & mechanics
       engine.meshes.clearScene();
       engine.game.mechanics.clear();
-      engine.setLightingPreset('cyber_sunset');
 
-      // 2. Spawn Starting Platform
-      engine.meshes.createPrimitive({
-        type: 'box',
-        name: 'Start Platform',
-        dimensions: { width: 5, height: 0.8, depth: 5 },
-        position: [0, 0, 0],
-        materialPreset: 'carbon_fiber'
-      });
-      engine.game.mechanics.activeCheckpoint.set(0, 1.2, 0);
+      if (args.template === 'dungeon_parkour') {
+        engine.setLightingPreset('cinematic_noir');
 
-      // 3. Platform series (Cyber Obby)
-      const platforms = [
-        { pos: [0, 0.6, 6], dim: [2.5, 0.5, 2.5], mat: 'matte_obsidian' },
-        { pos: [3.5, 1.6, 9], dim: [2.2, 0.5, 2.2], mat: 'matte_obsidian' },
-        { pos: [0, 2.6, 12], dim: [2.5, 0.5, 2.5], mat: 'matte_obsidian' },
-        { pos: [-4, 3.8, 14], dim: [2.5, 0.5, 2.5], mat: 'carbon_fiber' },
-        { pos: [0, 5.0, 17], dim: [3.0, 0.5, 3.0], mat: 'matte_obsidian' },
-        { pos: [5, 6.2, 20], dim: [2.2, 0.5, 2.2], mat: 'carbon_fiber' },
-        { pos: [0, 7.5, 24], dim: [5, 0.8, 5], mat: 'carbon_fiber' } // Finish platform
-      ];
-
-      platforms.forEach((p, idx) => {
+        // Start Dungeon Base
         engine.meshes.createPrimitive({
           type: 'box',
-          name: `Obby Platform ${idx + 1}`,
-          dimensions: { width: p.dim[0], height: p.dim[1], depth: p.dim[2] },
-          position: p.pos as [number, number, number],
-          materialPreset: p.mat as any
+          name: 'Dungeon Keep Platform',
+          dimensions: { width: 6, height: 1.0, depth: 6 },
+          position: [0, 0, 0],
+          materialPreset: 'clay_sculpt'
         });
-      });
+        engine.game.mechanics.activeCheckpoint.set(0, 1.2, 0);
 
-      // 4. Moving Platform
-      engine.game.mechanics.spawnMovingPlatform([-4, 3.8, 14], [-4, 3.8, 10], [2.5, 0.4, 2.0], 1.5);
+        // Stone Pillars with Torches
+        const pillarPos = [[-2.5, 2, -2.5], [2.5, 2, -2.5], [-2.5, 2, 2.5], [2.5, 2, 2.5]];
+        pillarPos.forEach((pos, i) => {
+          engine.meshes.createPrimitive({
+            type: 'cylinder',
+            name: `Torch Pillar ${i + 1}`,
+            dimensions: { radiusTop: 0.35, radiusBottom: 0.45, height: 3.5, radialSegments: 12 },
+            position: pos as [number, number, number],
+            materialPreset: 'terracotta'
+          });
+          engine.meshes.createPrimitive({
+            type: 'dodecahedron',
+            name: `Torch Flame ${i + 1}`,
+            dimensions: { radius: 0.28 },
+            position: [pos[0], pos[1] + 2.0, pos[2]],
+            materialPreset: 'brushed_gold'
+          });
+        });
 
-      // 5. Jump Pad (Bounces player from platform 3 to platform 5)
-      engine.game.mechanics.spawnJumpPad([0, 2.9, 12], 22);
+        // Floating Stone Steps
+        const steps = [
+          [0, 0.8, 6],
+          [3, 1.8, 8],
+          [0, 2.8, 11],
+          [-3, 3.8, 14],
+          [0, 4.8, 17],
+          [0, 6.2, 22] // Boss / Goal Platform
+        ];
+        steps.forEach((pos, idx) => {
+          engine.meshes.createPrimitive({
+            type: 'box',
+            name: `Stone Step ${idx + 1}`,
+            dimensions: { width: idx === steps.length - 1 ? 5 : 2.4, height: 0.6, depth: idx === steps.length - 1 ? 5 : 2.4 },
+            position: pos as [number, number, number],
+            materialPreset: 'clay_sculpt'
+          });
+        });
 
-      // 6. Lava Hazard Floor
-      engine.game.mechanics.spawnHazard([0, -1.5, 12], [30, 0.5, 35]);
+        // Spike / Lava Hazard Beneath
+        engine.game.mechanics.spawnHazard([0, -1.2, 11], [25, 0.4, 25]);
 
-      // 7. Collectible Gems
-      engine.game.mechanics.spawnCollectible([0, 1.8, 6], 100);
-      engine.game.mechanics.spawnCollectible([3.5, 2.8, 9], 150);
-      engine.game.mechanics.spawnCollectible([0, 5.2, 14], 200);
-      engine.game.mechanics.spawnCollectible([5, 7.4, 20], 250);
+        // Moving Stone Bridge
+        engine.game.mechanics.spawnMovingPlatform([-3, 3.8, 14], [3, 3.8, 14], [2.2, 0.4, 2.2], 1.6);
 
-      // 8. Goal Portal at finish
-      engine.game.mechanics.spawnGoal([0, 8.9, 24]);
+        // Jump Booster to High Keep
+        engine.game.mechanics.spawnJumpPad([0, 3.1, 11], 20);
+
+        // Dungeon Relic Gems
+        engine.game.mechanics.spawnCollectible([0, 2.0, 6], 100);
+        engine.game.mechanics.spawnCollectible([3, 3.0, 8], 150);
+        engine.game.mechanics.spawnCollectible([0, 6.0, 17], 250);
+        engine.game.mechanics.spawnCollectible([0, 7.5, 22], 500);
+
+        // Dungeon Altar Goal
+        engine.game.mechanics.spawnGoal([0, 7.6, 22]);
+
+      } else if (args.template === 'gem_runner_arena') {
+        engine.setLightingPreset('warm_editorial');
+
+        // Central Arena Floor
+        engine.meshes.createPrimitive({
+          type: 'cylinder',
+          name: 'Arena Core Ground',
+          dimensions: { radiusTop: 9, radiusBottom: 9.5, height: 0.6, radialSegments: 36 },
+          position: [0, 0, 0],
+          materialPreset: 'carbon_fiber'
+        });
+        engine.game.mechanics.activeCheckpoint.set(0, 1.0, 0);
+
+        // 4 Elevated Bounce Towers
+        const towers = [
+          [-6, 2.5, -6],
+          [6, 2.5, -6],
+          [-6, 2.5, 6],
+          [6, 2.5, 6]
+        ];
+        towers.forEach((pos, i) => {
+          engine.meshes.createPrimitive({
+            type: 'cylinder',
+            name: `Tower Plinth ${i + 1}`,
+            dimensions: { radiusTop: 2.0, radiusBottom: 2.4, height: 4.5, radialSegments: 18 },
+            position: pos as [number, number, number],
+            materialPreset: 'matte_obsidian'
+          });
+          engine.game.mechanics.spawnJumpPad([pos[0], pos[1] + 2.4, pos[2]], 26);
+          engine.game.mechanics.spawnCollectible([pos[0], pos[1] + 5.0, pos[2]], 300);
+        });
+
+        // Center Jump Launchers
+        engine.game.mechanics.spawnJumpPad([0, 0.4, 3], 24);
+        engine.game.mechanics.spawnJumpPad([0, 0.4, -3], 24);
+
+        // Scattered Field Gems
+        engine.game.mechanics.spawnCollectible([3, 1.2, 0], 100);
+        engine.game.mechanics.spawnCollectible([-3, 1.2, 0], 100);
+        engine.game.mechanics.spawnCollectible([0, 1.2, 0], 200);
+
+        // Sky High Floating Goal Portal
+        engine.meshes.createPrimitive({
+          type: 'box',
+          name: 'Sky Victory Perch',
+          dimensions: { width: 3.5, height: 0.5, depth: 3.5 },
+          position: [0, 9.0, 0],
+          materialPreset: 'brushed_gold'
+        });
+        engine.game.mechanics.spawnGoal([0, 10.4, 0]);
+
+      } else {
+        // Default: Cyber Obby
+        engine.setLightingPreset('cyber_sunset');
+
+        engine.meshes.createPrimitive({
+          type: 'box',
+          name: 'Start Platform',
+          dimensions: { width: 5, height: 0.8, depth: 5 },
+          position: [0, 0, 0],
+          materialPreset: 'carbon_fiber'
+        });
+        engine.game.mechanics.activeCheckpoint.set(0, 1.2, 0);
+
+        const platforms = [
+          { pos: [0, 0.6, 6], dim: [2.5, 0.5, 2.5], mat: 'matte_obsidian' },
+          { pos: [3.5, 1.6, 9], dim: [2.2, 0.5, 2.2], mat: 'matte_obsidian' },
+          { pos: [0, 2.6, 12], dim: [2.5, 0.5, 2.5], mat: 'matte_obsidian' },
+          { pos: [-4, 3.8, 14], dim: [2.5, 0.5, 2.5], mat: 'carbon_fiber' },
+          { pos: [0, 5.0, 17], dim: [3.0, 0.5, 3.0], mat: 'matte_obsidian' },
+          { pos: [5, 6.2, 20], dim: [2.2, 0.5, 2.2], mat: 'carbon_fiber' },
+          { pos: [0, 7.5, 24], dim: [5, 0.8, 5], mat: 'carbon_fiber' }
+        ];
+
+        platforms.forEach((p, idx) => {
+          engine.meshes.createPrimitive({
+            type: 'box',
+            name: `Obby Platform ${idx + 1}`,
+            dimensions: { width: p.dim[0], height: p.dim[1], depth: p.dim[2] },
+            position: p.pos as [number, number, number],
+            materialPreset: p.mat as any
+          });
+        });
+
+        engine.game.mechanics.spawnMovingPlatform([-4, 3.8, 14], [-4, 3.8, 10], [2.5, 0.4, 2.0], 1.5);
+        engine.game.mechanics.spawnJumpPad([0, 2.9, 12], 22);
+        engine.game.mechanics.spawnHazard([0, -1.5, 12], [30, 0.5, 35]);
+
+        engine.game.mechanics.spawnCollectible([0, 1.8, 6], 100);
+        engine.game.mechanics.spawnCollectible([3.5, 2.8, 9], 150);
+        engine.game.mechanics.spawnCollectible([0, 5.2, 14], 200);
+        engine.game.mechanics.spawnCollectible([5, 7.4, 20], 250);
+
+        engine.game.mechanics.spawnGoal([0, 8.9, 24]);
+      }
 
       engine.frameAll();
       engine.notifyChange();
 
       return {
         level: args.template,
-        totalGems: 4,
-        message: `Constructed ${args.template} with 7 platforms, moving bridge, jump pad, lava floor, and goal portal!`
+        totalGems: engine.game.mechanics.items.filter(i => i.type === 'collectible').length,
+        message: `Constructed ${args.template} successfully!`
       };
     }
   });

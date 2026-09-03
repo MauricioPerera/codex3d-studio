@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StudioEngine } from '../engine/StudioEngine';
-import { X, Download, Image, Check, FileCode } from 'lucide-react';
+import { X, Download, Image, Check, FileCode, Gamepad2 } from 'lucide-react';
 
 interface RenderExportModalProps {
   engine: StudioEngine | null;
@@ -75,18 +75,33 @@ export const RenderExportModal: React.FC<RenderExportModalProps> = ({
     }
   };
 
+  const handleExportStandaloneHTML = async () => {
+    setIsExporting(true);
+    try {
+      const fileName = `playable_game_${Date.now()}.html`;
+      const { html } = await engine.exporter.exportStandaloneGameHTML('Codex3D Web Game');
+      engine.exporter.downloadFile(html, fileName);
+      setExportedFormat('html');
+      setTimeout(() => setExportedFormat(null), 3000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
-      <div className="glass-panel w-full max-w-2xl rounded-3xl p-6 flex flex-col gap-5 border border-white/10 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm select-none">
+      <div className="glass-panel w-full max-w-2xl rounded-3xl p-6 flex flex-col gap-4 border border-white/10 shadow-2xl relative">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div>
             <h2 className="text-base font-semibold text-slate-100 flex items-center gap-2">
               <Image className="w-5 h-5 text-sky-400" />
-              Studio Asset Render & Export
+              Render & Export Asset Suite
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              High-resolution beauty snapshot & 3D industry asset formats
+              Studio snapshots, standard 3D meshes, and standalone playable games
             </p>
           </div>
           <button
@@ -98,7 +113,7 @@ export const RenderExportModal: React.FC<RenderExportModalProps> = ({
         </div>
 
         {/* Preview Frame */}
-        <div className="relative aspect-square max-h-80 w-full rounded-2xl overflow-hidden border border-white/10 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] bg-slate-950 flex items-center justify-center">
+        <div className="relative aspect-square max-h-72 w-full rounded-2xl overflow-hidden border border-white/10 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] bg-slate-950 flex items-center justify-center">
           {snapshotUrl ? (
             <img
               src={snapshotUrl}
@@ -124,10 +139,10 @@ export const RenderExportModal: React.FC<RenderExportModalProps> = ({
           </label>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleDownloadSnapshot}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-medium transition-colors border border-white/5"
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-medium transition-colors border border-white/5"
             >
               <Download className="w-4 h-4 text-emerald-400" />
               <span>Download PNG</span>
@@ -136,7 +151,7 @@ export const RenderExportModal: React.FC<RenderExportModalProps> = ({
             <button
               onClick={handleExportGLB}
               disabled={isExporting}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-medium transition-all shadow-md active:scale-95"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-medium transition-all shadow-md active:scale-95"
             >
               {exportedFormat === 'glb' ? (
                 <Check className="w-4 h-4 text-white" />
@@ -149,10 +164,21 @@ export const RenderExportModal: React.FC<RenderExportModalProps> = ({
             <button
               onClick={handleExportOBJ}
               disabled={isExporting}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-medium transition-colors border border-white/5"
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-medium transition-colors border border-white/5"
             >
               <FileCode className="w-4 h-4 text-indigo-400" />
               <span>Export OBJ</span>
+            </button>
+
+            {/* Standalone HTML Game Export */}
+            <button
+              onClick={handleExportStandaloneHTML}
+              disabled={isExporting}
+              title="Exports self-contained offline playable HTML game"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-md active:scale-95 border border-emerald-400/30"
+            >
+              <Gamepad2 className="w-4 h-4 text-emerald-200" />
+              <span>{exportedFormat === 'html' ? 'Downloaded Game!' : 'Export Game (.html)'}</span>
             </button>
           </div>
         </div>
