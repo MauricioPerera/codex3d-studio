@@ -6,6 +6,7 @@ import { MeshManager } from './MeshManager';
 import { Exporter } from './Exporter';
 import { GameManager } from '../game/GameManager';
 import { LevelGeneratorAI } from '../game/LevelGeneratorAI';
+import { LevelSerializer } from '../game/LevelSerializer';
 import { CameraPreset, LightingPreset, SceneInspectionResult } from './types';
 
 export class StudioEngine {
@@ -19,6 +20,7 @@ export class StudioEngine {
   public exporter: Exporter;
   public game: GameManager;
   public levelGenerator: LevelGeneratorAI;
+  public levelSerializer: LevelSerializer;
 
   public selectedObject: THREE.Object3D | null = null;
   private selectionHelper: THREE.BoxHelper | null = null;
@@ -74,6 +76,7 @@ export class StudioEngine {
     this.exporter = new Exporter(this.scene, this.renderer, this.camera);
     this.game = new GameManager(this.scene, this.camera, this.controls);
     this.levelGenerator = new LevelGeneratorAI(this);
+    this.levelSerializer = new LevelSerializer(this);
 
     // 6. Start render loop
     this.startLoop();

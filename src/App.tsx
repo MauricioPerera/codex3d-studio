@@ -11,6 +11,7 @@ import { GameHUD } from './components/GameHUD';
 import { EntitySpawnerBar } from './components/EntitySpawnerBar';
 import { EntityInspector } from './components/EntityInspector';
 import { AILevelGeneratorModal } from './components/AILevelGeneratorModal';
+import { LevelManagerModal } from './components/LevelManagerModal';
 import { GameState } from './game/GameManager';
 
 export const App: React.FC = () => {
@@ -30,6 +31,7 @@ export const App: React.FC = () => {
   const [isRenderModalOpen, setIsRenderModalOpen] = useState(false);
   const [isPhotorealModalOpen, setIsPhotorealModalOpen] = useState(false);
   const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false);
+  const [isLevelManagerOpen, setIsLevelManagerOpen] = useState(false);
   const [isSpawnerOpen, setIsSpawnerOpen] = useState(true);
 
   const handleEngineReady = useCallback((eng: StudioEngine) => {
@@ -57,6 +59,7 @@ export const App: React.FC = () => {
         onOpenRenderModal={() => setIsRenderModalOpen(true)}
         onOpenPhotorealModal={() => setIsPhotorealModalOpen(true)}
         onOpenAIGenerator={() => setIsAIGeneratorOpen(true)}
+        onOpenLevelManager={() => setIsLevelManagerOpen(true)}
         onToggleHierarchy={() => setIsHierarchyOpen(prev => !prev)}
         isHierarchyOpen={isHierarchyOpen}
         onToggleConsole={() => setIsConsoleOpen(prev => !prev)}
@@ -95,6 +98,13 @@ export const App: React.FC = () => {
         engine={engine}
         isOpen={isAIGeneratorOpen}
         onClose={() => setIsAIGeneratorOpen(false)}
+      />
+
+      {/* Save, Load and Export Level JSON Modal */}
+      <LevelManagerModal
+        engine={engine}
+        isOpen={isLevelManagerOpen}
+        onClose={() => setIsLevelManagerOpen(false)}
       />
 
       {/* Real-Time Play Mode Game HUD with Touch Controls */}

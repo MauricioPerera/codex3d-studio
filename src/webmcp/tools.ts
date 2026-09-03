@@ -972,6 +972,41 @@ export function registerStudioTools(engine: StudioEngine): WebMCPBridge {
     }
   });
 
+  // 21. Save Current Level
+  bridge.registerTool({
+    name: 'save_current_level',
+    description: 'Serializes the entire scene and all gameplay entities into a portable JSON package and saves it in browser storage.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Title of the level' }
+      }
+    },
+    execute: (args) => {
+      const pkg = engine.levelSerializer.serialize(args.title || 'My Level');
+      engine.levelSerializer.saveToStorage(pkg);
+      return {
+        levelId: pkg.id,
+        title: pkg.title,
+        platformCount: pkg.platforms.length,
+        entityCount: pkg.entities.length,
+        message: `Saved level "${pkg.title}" successfully!`
+      };
+    }
+  });
+
+  // 22. List Saved Levels
+  bridge.registerTool({
+    name: 'list_saved_levels',
+    description: 'Returns all saved level packages currently stored in the browser library.',
+    parameters: { type: 'object', properties: {} },
+    execute: () => {
+      return {
+        levels: engine.levelSerializer.listStorage()
+      };
+    }
+  });
+
   return bridge;
 }
 

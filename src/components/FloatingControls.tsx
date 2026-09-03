@@ -15,7 +15,8 @@ import {
   Gamepad2,
   Volume2,
   VolumeX,
-  Wand2
+  Wand2,
+  FolderDown
 } from 'lucide-react';
 
 interface FloatingControlsProps {
@@ -23,6 +24,7 @@ interface FloatingControlsProps {
   onOpenRenderModal: () => void;
   onOpenPhotorealModal: () => void;
   onOpenAIGenerator: () => void;
+  onOpenLevelManager: () => void;
   onToggleHierarchy: () => void;
   isHierarchyOpen: boolean;
   onToggleConsole: () => void;
@@ -34,6 +36,7 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
   onOpenRenderModal,
   onOpenPhotorealModal,
   onOpenAIGenerator,
+  onOpenLevelManager,
   onToggleHierarchy,
   isHierarchyOpen,
   onToggleConsole,
@@ -274,6 +277,15 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
             </div>
           )}
         </div>
+
+        {/* Saved Levels Library & JSON Exporter */}
+        <button
+          onClick={onOpenLevelManager}
+          title="Gestor de Niveles (Guardar, Cargar, JSON)"
+          className="p-1.5 rounded-lg text-slate-300 hover:bg-amber-500/20 hover:text-amber-300 transition-colors"
+        >
+          <FolderDown className="w-4 h-4" />
+        </button>
 
         <div className="w-[1px] h-4 bg-white/10 my-auto" />
 

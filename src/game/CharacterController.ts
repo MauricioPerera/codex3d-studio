@@ -458,7 +458,7 @@ export class CharacterController {
       }
     }
 
-    // 5. Smooth 3rd-person follow camera
+    // 5. Smooth 3rd-person follow camera with SpringArm Collision Raycast
     const cameraTarget = new THREE.Vector3(
       this.mesh.position.x,
       this.mesh.position.y + 1.2,
@@ -473,8 +473,22 @@ export class CharacterController {
       Math.cos(this.camYaw) * -horizontalDist
     );
 
+    // Raycast check: pull camera forward if a platform or wall blocks line-of-sight
+    const rayFrom = new CANNON.Vec3(cameraTarget.x, cameraTarget.y, cameraTarget.z);
+    const rayTo = new CANNON.Vec3(
+      cameraTarget.x + idealOffset.x,
+      cameraTarget.y + idealOffset.y,
+      cameraTarget.z + idealOffset.z
+    );
+    const camRayResult = new CANNON.RaycastResult();
+    this.physics.world.raycastClosest(rayFrom, rayTo, {}, camRayResult);
+    if (camRayResult.hasHit && camRayResult.body !== this.body) {
+      const hitFraction = Math.max(0.2, (camRayResult.distance - 0.3) / this.camDist);
+      idealOffset.multiplyScalar(hitFraction);
+    }
+
     const targetCamPos = cameraTarget.clone().add(idealOffset);
-    this.camera.position.lerp(targetCamPos, 0.18);
+    this.camera.position.lerp(targetCamPos, 0.22);
     this.camera.lookAt(cameraTarget);
 
     // 6. Fall pit check
