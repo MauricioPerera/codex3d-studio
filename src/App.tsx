@@ -8,6 +8,7 @@ import { WebMCPConsoleDrawer } from './components/WebMCPConsoleDrawer';
 import { RenderExportModal } from './components/RenderExportModal';
 import { PhotorealModal } from './components/PhotorealModal';
 import { GameHUD } from './components/GameHUD';
+import { EntitySpawnerBar } from './components/EntitySpawnerBar';
 import { GameState } from './game/GameManager';
 
 export const App: React.FC = () => {
@@ -26,6 +27,7 @@ export const App: React.FC = () => {
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [isRenderModalOpen, setIsRenderModalOpen] = useState(false);
   const [isPhotorealModalOpen, setIsPhotorealModalOpen] = useState(false);
+  const [isSpawnerOpen, setIsSpawnerOpen] = useState(true);
 
   const handleEngineReady = useCallback((eng: StudioEngine) => {
     setEngine(eng);
@@ -84,8 +86,9 @@ export const App: React.FC = () => {
         onClose={() => setIsPhotorealModalOpen(false)}
       />
 
-      {/* Real-Time Play Mode Game HUD */}
+      {/* Real-Time Play Mode Game HUD with Touch Controls */}
       <GameHUD
+        engine={engine}
         gameState={gameState}
         onToggleMode={() => {
           if (!engine) return;
@@ -96,6 +99,13 @@ export const App: React.FC = () => {
           if (!engine) return;
           engine.game.resetLevel();
         }}
+      />
+
+      {/* In-Editor Gameplay Entity Spawner Bar */}
+      <EntitySpawnerBar
+        engine={engine}
+        isOpen={isSpawnerOpen}
+        onClose={() => setIsSpawnerOpen(false)}
       />
     </div>
   );

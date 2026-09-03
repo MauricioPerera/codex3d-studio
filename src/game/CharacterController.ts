@@ -13,9 +13,13 @@ export class CharacterController {
 
   private keys: Record<string, boolean> = {};
   public active = false;
+  public currentAvatar: 'voxel_runner' | 'marble_ball' = 'voxel_runner';
 
   private targetRotation = 0;
   private currentRotation = 0;
+
+  // Touch controls input
+  public touchMove = { forward: 0, right: 0 };
 
   // 3rd Person Orbit Follow Camera
   private camYaw = 0; // 0 = looking down +Z
@@ -38,9 +42,46 @@ export class CharacterController {
     this.setupInputs();
   }
 
+  public setAvatar(type: 'voxel_runner' | 'marble_ball') {
+    this.currentAvatar = type;
+    this.scene.remove(this.mesh);
+    this.mesh = this.createPlayerMesh();
+    this.scene.add(this.mesh);
+    this.mesh.visible = this.active;
+  }
+
   private createPlayerMesh(): THREE.Group {
     const group = new THREE.Group();
     group.name = '__Player_Avatar__';
+
+    if (this.currentAvatar === 'marble_ball') {
+      // Speed Marble / Rolling Sphere Avatar
+      const sphereGeo = new THREE.SphereGeometry(0.55, 32, 32);
+      const sphereMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.6,
+        roughness: 0.1,
+        metalness: 0.95
+      });
+      const marble = new THREE.Mesh(sphereGeo, sphereMat);
+      marble.castShadow = true;
+      marble.position.y = 0.55;
+      group.add(marble);
+
+      // Inner energy core
+      const coreGeo = new THREE.DodecahedronGeometry(0.28);
+      const coreMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0x38bdf8,
+        emissiveIntensity: 1.2
+      });
+      const core = new THREE.Mesh(coreGeo, coreMat);
+      core.position.y = 0.55;
+      group.add(core);
+
+      return group;
+    }
 
     // Stylized Voxel Runner Character
     // Head
@@ -135,6 +176,7 @@ export class CharacterController {
     this.mesh.visible = active;
     if (!active) {
       this.keys = {};
+      this.touchMove = { forward: 0, right: 0 };
     }
   }
 
@@ -190,9 +232,9 @@ export class CharacterController {
     this.physics.world.raycastClosest(from, to, {}, result);
     this.isGrounded = result.hasHit && result.body !== this.body;
 
-    // 2. Input movement vector
-    let forward = 0;
-    let right = 0;
+    // 2. Input movement vector (Keyboard + Virtual Touch)
+    let forward = this.touchMove.forward;
+    let right = this.touchMove.right;
     if (this.keys['KeyW'] || this.keys['ArrowUp']) forward += 1;
     if (this.keys['KeyS'] || this.keys['ArrowDown']) forward -= 1;
     if (this.keys['KeyA'] || this.keys['ArrowLeft']) right -= 1;
@@ -213,6 +255,11 @@ export class CharacterController {
       this.targetRotation = Math.atan2(moveVector.x, moveVector.z);
       this.currentRotation = THREE.MathUtils.lerp(this.currentRotation, this.targetRotation, 0.2);
       this.mesh.rotation.y = this.currentRotation;
+
+      if (this.currentAvatar === 'marble_ball') {
+        // Roll ball forward
+        this.mesh.rotation.x += dt * speed * 2;
+      }
     } else {
       // Damping when stopped
       this.body.velocity.x *= 0.8;
